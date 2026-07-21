@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Watch Dial Designer - Lechol Zman Studio</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script>
+        // Programmatically register a classic React preset to prevent Babel standalone from injecting ESM import statements
+        Babel.registerPreset('react-classic', {
+            presets: [
+                [Babel.availablePresets['react'], { runtime: 'classic' }]
+            ]
+        });
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Playfair+Display:wght@700&family=IBM+Plex+Sans+Hebrew:wght@400;700&family=Roboto+Mono&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #1a0f0d; color: #1e293b; }
+        input[type="range"] { accent-color: #ea580c; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+        
+        /* High-Quality Warm Mahogany Wood Grain */
+        .wood-grain {
+            background-color: #3b2314;
+            background-image: 
+                repeating-linear-gradient(180deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 4px),
+                repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 80px),
+                radial-gradient(ellipse at center, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.45) 100%);
+            background-blend-mode: multiply, overlay, normal;
+        }
+
+        .canvas-shadow { filter: drop-shadow(0 25px 50px rgba(0,0,0,0.65)); }
+        .no-select { user-select: none; }
+        .watch-preview-shadow { filter: drop-shadow(0 20px 45px rgba(0,0,0,0.55)); }
+        .sidebar-section { border-bottom: 1px solid rgba(0,0,0,0.06); padding-bottom: 0.45rem; margin-bottom: 0.45rem; }
+        
+        .checklist-dropdown {
+            max-height: 180px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            z-index: 100;
+        }
+
+        .touch-none { touch-action: none; }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="react-classic">
+        const { useState, useRef, useEffect, useCallback, useMemo } = React;
+
+        const DPI = 300;
+        const MM_TO_INCH = 1 / 25.4;
+
+        const PAPER_SIZES = [
+            { id: '13x18', name: '13x18 cm', wMm: 130, hMm: 180 },
+            { id: '10x15', name: '10x15 cm', wMm: 100, hMm: 150 }
+        ];
+
+        const DEFAULT_FONTS = [
+            { id: 'Inter', name: 'Sans' },
+            { id: 'Playfair Display', name: 'Serif' },
+            { id: 'IBM Plex Sans Hebrew', name: 'Hebrew' },
+            { id: 'Roboto Mono', name: 'Mono' }
+        ];
+
+        const PRESET_INDEX_STYLES = [
+            { id: 'ktm-3d-gold', name: 'Faceted Gold (3D)', type: 'indices-3d', baseColor: '#D4AF37', facetColor: '#FDF1B8', shadowColor: '#5C4410' },
+            { id: 'ktm-3d-silver', name: 'Faceted Silver (3D)', type: 'indices-3d', baseColor: '#B0B0B0', facetColor: '#FFFFFF', shadowColor: '#333333' },
+            { id: 'ktm-batons', name: 'Classic Batons', type: 'indices', shape: 'rect' },
+            { id: 'small-circles', name: 'Small Circles', type: 'circles' },
+            { id: 'custom-image', name: 'Custom Marker Image', type: 'custom' },
+            { id: 'none', name: 'None (Clean)', type: 'none' },
+            { id: 'classic-arabic', name: 'Arabic', type: 'numbers', values: [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+        ];
+
+        const COLORS = [
+            { name: 'White', value: '#FFFFFF' },
+            { name: 'Black', value: '#000000' },
+            { name: 'Gold', value: '#D4AF37' },
+            { name: 'Silver', value: '#C0C0C0' },
+            { name: 'Blue', value: '#1E40AF' },
+        ];
+
+        const Icon = ({ name, size = 18, className = "" }) => {
+            const icons = {
+                upload: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>,
+                printer: <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/>,
+                layers: <path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>,
+                settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2zM12 15a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>,
+                trash: <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>,
+                download: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>,
+                type: <React.Fragment><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" cy1="4" x2="12" cy2="20"/></React.Fragment>,
+                eye: <React.Fragment><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></React.Fragment>,
+                maximize: <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>,
+                chevron: <polyline points="6 9 12 15 18 9" />,
+                check: <polyline points="20 6 9 17 4 12" />,
+                image: <React.Fragment><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></React.Fragment>,
+                plus: <path d="M12 5v14M5 12h14" />,
+                rotate: <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8M21 3v5h-5"/>,
+                arrowUp: <polyline points="18 15 12 9 6 15" />,
+                arrowDown: <polyline points="6 9 12 15 18 9" />,
+                grip: <React.Fragment><circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/></React.Fragment>,
+                colorPalete: <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 14.7255 3.09032 17.1962 4.85857 19C4.94901 19.0922 5 19.2215 5 19.3562V21C5 21.5523 5.44772 22 6 22H12ZM12 6C12.5523 6 13 5.55228 13 5C13 4.44772 12.5523 4 12 4C11.4477 4 11 4.44772 11 5C11 5.55228 11.4477 6 12 6ZM7.5 9C8.32843 9 9 8.32843 9 7.5C9 6.67157 8.32843 6 7.5 6C6.67157 6 6 6.67157 6 7.5C6 8.32843 6.67157 9 7.5 9ZM16.5 9C17.3284 9 18 8.32843 18 7.5C18 6.67157 17.3284 6 16.5 6C15.6716 6 15 6.67157 15 7.5C15 8.32843 15.6716 9 16.5 9ZM18.5 13C19.3284 13 20 12.3284 20 11.5C20 10.6716 19.3284 10 18.5 10C17.6716 10 17 10.6716 17 11.5C17 12.3284 17.6716 13 18.5 13Z" />
+            };
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        const App = () => {
+            const [layers, setLayers] = useState([]);
+            const [selectedLayerIndex, setSelectedLayerIndex] = useState(null);
+            const [customFonts, setCustomFonts] = useState([]);
+            const [customMarkerImg, setCustomMarkerImg] = useState(null);
+            const [dialSettings, setDialSettings] = useState({
+                indexStyle: 'ktm-3d-gold',
+                indexColor: '#000000',
+                indexSize: 35,
+                indexWidth: 10,
+                indexRadius: 195,
+                showCenterDot: true,
+                showShadow: false,
+                diameterMm: 42,
+                paperSize: '13x18',
+                indexMask: Array(12).fill(true),
+                rotateMarkers: true,
+                transparentBg: false,
+                domeEnabled: false,
+                domeCurvature: 30,
+                domeStartRadius: 0,
+                domeGlassShine: 50,
+                domeLightAngle: 315
+            });
+
+            const [showPreview, setShowPreview] = useState(false);
+            const [previewPhoto, setPreviewPhoto] = useState(null);
+            const [previewConfig, setPreviewConfig] = useState({ x: 250, y: 345, r: 125, scale: 1.0 });
+            const [showIndiceList, setShowIndiceList] = useState(false);
+            
+            // Sidebar collapse states (start as collapsed / false)
+            const [compExpanded, setCompExpanded] = useState(false);
+            const [indicesExpanded, setIndicesExpanded] = useState(false);
+            const [domeExpanded, setDomeExpanded] = useState(false);
+            
+            // Drag and drop sorting states
+            const [draggingIndex, setDraggingIndex] = useState(null);
+
+            // Remembered Custom Colors Map state (last 6 customized colors)
+            const [recentColors, setRecentColors] = useState(['#FF6600', '#B0B0B0', '#1E40AF', '#D4AF37', '#000000', '#FFFFFF']);
+
+            // Batch queue for multiple pre-designed dials with their own diameters
+            const [batchList, setBatchList] = useState([]);
+
+            const canvasRef = useRef(null);
+            const previewCanvasRef = useRef(null);
+            const fontInputRef = useRef(null);
+            
+            // Absolute dragging references
+            const isDraggingRef = useRef(false);
+            const isDraggingFaceRef = useRef(false);
+            const mainDragRef = useRef({ startMouseX: 0, startMouseY: 0, initialX: 0, initialY: 0 });
+            const previewDragRef = useRef({ startMouseX: 0, startMouseY: 0, startFaceX: 0, startFaceY: 0 });
+
+            const availableFonts = useMemo(() => [...DEFAULT_FONTS, ...customFonts], [customFonts]);
+
+            const handleModelPhotoUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => setPreviewPhoto(img);
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const handleFontUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const fontName = file.name.split('.')[0].replace(/[^a-zA-Z]/g, '');
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const fontFace = new FontFace(fontName, event.target.result);
+                    await fontFace.load();
+                    document.fonts.add(fontFace);
+                    setCustomFonts(prev => [...prev, { id: fontName, name: fontName }]);
+                    if (selectedLayerIndex !== null) {
+                        updateLayer('font', fontName);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            };
+
+            const handleImageUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const newLayer = { type: 'image', img, name: file.name, x: 250, y: 250, scale: 0.5, opacity: 1, rotation: 0 };
+                        setLayers(prev => {
+                            const next = [...prev, newLayer];
+                            setSelectedLayerIndex(next.length - 1);
+                            return next;
+                        });
+                        setCompExpanded(true); // Auto expand Composition on addition
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const handleCustomMarkerUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        setCustomMarkerImg(img);
+                        setDialSettings(prev => ({ ...prev, indexStyle: 'custom-image' }));
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const addTextLayer = () => {
+                const newLayer = {
+                    type: 'text', text: 'LABEL', font: 'Inter', size: 30, color: '#000000',
+                    x: 250, y: 250, opacity: 1, curved: false, radius: 150, startAngle: -90,
+                    isBold: true, spacing: 2, name: 'Text Layer', rotation: 0, scale: 1, shadow: false
+                };
+                setLayers(prev => {
+                    const next = [...prev, newLayer];
+                    setSelectedLayerIndex(next.length - 1);
+                    return next;
+                });
+                setCompExpanded(true); // Auto expand Composition on addition
+            };
+
+            const handleBatchFilesUpload = (e) => {
+                const files = Array.from(e.target.files);
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            setBatchList(prev => [...prev, { 
+                                id: Math.random().toString(), 
+                                name: file.name, 
+                                img, 
+                                diameterMm: parseFloat(dialSettings.diameterMm) 
+                            }]);
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                });
+            };
+
+            const addCurrentToBatch = () => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const dataUrl = canvas.toDataURL('image/png');
+                const img = new Image();
+                img.onload = () => {
+                    setBatchList(prev => [...prev, { 
+                        id: Math.random().toString(), 
+                        name: 'Current Design', 
+                        img, 
+                        diameterMm: parseFloat(dialSettings.diameterMm) 
+                    }]);
+                };
+                img.src = dataUrl;
+            };
+
+            const removeBatchItem = (id) => {
+                setBatchList(prev => prev.filter(item => item.id !== id));
+            };
+
+            const handleBatchDiameterChange = (id, val) => {
+                const parsedVal = parseFloat(val) || 0;
+                setBatchList(prev => prev.map(item => 
+                    item.id === id ? { ...item, diameterMm: parsedVal } : item
+                ));
+            };
+
+            const moveLayer = (index, direction) => {
+                // "up" direction visually means moving it UP the reversed list, which means moving it forward in the stack (index + 1)
+                const newIndex = direction === 'up' ? index + 1 : index - 1;
+                if (newIndex < 0 || newIndex >= layers.length) return;
+                const nextLayers = [...layers];
+                const temp = nextLayers[index];
+                nextLayers[index] = nextLayers[newIndex];
+                nextLayers[newIndex] = temp;
+                setLayers(nextLayers);
+                setSelectedLayerIndex(newIndex);
+            };
+
+            // Custom Drag & Drop Handlers for Layers List
+            const handleDragStart = (e, index) => {
+                setDraggingIndex(index);
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+            };
+
+            const handleDrop = (e, targetIndex) => {
+                e.preventDefault();
+                if (draggingIndex === null || draggingIndex === targetIndex) return;
+                const nextLayers = [...layers];
+                const [draggedItem] = nextLayers.splice(draggingIndex, 1);
+                nextLayers.splice(targetIndex, 0, draggedItem);
+                setLayers(nextLayers);
+                setSelectedLayerIndex(targetIndex);
+                setDraggingIndex(null);
+            };
+
+            const drawText = (ctx, layer, centerX, centerY, scaleFactor) => {
+                const fs = layer.size * scaleFactor;
+                ctx.save();
+                ctx.font = `${layer.isBold ? 'bold' : ''} ${fs}px "${layer.font}"`;
+                ctx.fillStyle = layer.color;
+                ctx.globalAlpha = layer.opacity !== undefined ? layer.opacity : 1.0;
+                
+                if (layer.shadow) {
+                    ctx.shadowBlur = 4 * scaleFactor;
+                    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                    ctx.shadowOffsetX = 2 * scaleFactor;
+                    ctx.shadowOffsetY = 2 * scaleFactor;
+                } else {
+                    ctx.shadowBlur = 0;
+                    ctx.shadowColor = 'transparent';
+                    ctx.shadowOffsetX = 0;
+                    ctx.shadowOffsetY = 0;
+                }
+
+                if (layer.curved) {
+                    const radius = layer.radius * scaleFactor;
+                    const spacing = (layer.spacing !== undefined ? layer.spacing : 2) * scaleFactor;
+                    
+                    // Handle Hebrew / RTL characters properly in clockwise arc
+                    const isHebrew = /[\u0590-\u05FF]/.test(layer.text);
+                    const processedText = isHebrew ? layer.text.split('').reverse().join('') : layer.text;
+                    const chars = processedText.split('');
+                    
+                    // Measure each character dynamically under current font metrics, tracking kerning changes
+                    const charWidths = chars.map((char, i) => {
+                        const currentWidth = ctx.measureText(processedText.slice(0, i + 1)).width;
+                        const prevWidth = i > 0 ? ctx.measureText(processedText.slice(0, i)).width : 0;
+                        return currentWidth - prevWidth;
+                    });
+                    
+                    // Map out precise flat baseline horizontal offsets for centers to maintain correct kerning
+                    let currentX = 0;
+                    const charCenters = [];
+                    for (let i = 0; i < chars.length; i++) {
+                        const charW = charWidths[i];
+                        const charCenter = currentX + charW / 2;
+                        charCenters.push(charCenter);
+                        currentX += charW + spacing;
+                    }
+                    
+                    const totalStringWidth = chars.length > 0 ? currentX - spacing : 0;
+                    const startRad = (layer.startAngle * Math.PI) / 180;
+                    
+                    // Override textAlign to 'left' for predictable pixel offset coordinates
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    
+                    // Rotate and translate perfectly centered around our starting angle anchor
+                    chars.forEach((char, i) => {
+                        const charW = charWidths[i];
+                        const offsetFromCenter = charCenters[i] - totalStringWidth / 2;
+                        const targetAngle = startRad + offsetFromCenter / radius;
+                        
+                        ctx.save();
+                        ctx.translate(centerX + Math.cos(targetAngle) * radius, centerY + Math.sin(targetAngle) * radius);
+                        ctx.rotate(targetAngle + Math.PI / 2);
+                        // Shift left precisely by half of its contextual kerning width to center cleanly
+                        ctx.fillText(char, -charW / 2, 0);
+                        ctx.restore();
+                    });
+                } else {
+                    ctx.save();
+                    ctx.translate(centerX + (layer.x - 250) * scaleFactor, centerY + (layer.y - 250) * scaleFactor);
+                    ctx.rotate((layer.rotation || 0) * Math.PI / 180);
+                    ctx.fillText(layer.text, 0, 0);
+                    ctx.restore();
+                }
+                ctx.restore();
+                ctx.globalAlpha = 1.0;
+            };
+
+            const drawIndices = (ctx, centerX, centerY, scaleFactor = 1) => {
+                const style = PRESET_INDEX_STYLES.find(s => s.id === dialSettings.indexStyle);
+                if (!style || style.type === 'none') return;
+                const drawRadius = dialSettings.indexRadius * scaleFactor;
+                const baseLen = dialSettings.indexSize * scaleFactor;
+                const baseWid = dialSettings.indexWidth * scaleFactor;
+
+                ctx.save();
+                if (dialSettings.showShadow) {
+                    ctx.shadowBlur = 4 * scaleFactor; ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                    ctx.shadowOffsetX = 2 * scaleFactor; ctx.shadowOffsetY = 2 * scaleFactor;
+                }
+
+                for (let i = 0; i < 12; i++) {
+                    if (!dialSettings.indexMask[i]) continue;
+                    const angle = (i * 30 - 90) * (Math.PI / 180);
+                    const x = centerX + Math.cos(angle) * drawRadius;
+                    const y = centerY + Math.sin(angle) * drawRadius;
+
+                    if (style.type === 'numbers') {
+                        ctx.fillStyle = dialSettings.indexColor;
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        ctx.font = `bold ${baseLen}px Inter, sans-serif`;
+                        ctx.fillText(style.values[i], x, y);
+                    } else if (style.type === 'indices-3d') {
+                        ctx.save(); ctx.translate(centerX, centerY); ctx.rotate(angle + Math.PI / 2);
+                        const w = (i % 3 === 0 ? baseWid * 1.5 : baseWid);
+                        const h = (i % 3 === 0 ? baseLen : baseLen * 0.8);
+                        const rx = -w / 2; const ry = -drawRadius - h / 2 + 15 * scaleFactor;
+                        ctx.fillStyle = style.baseColor;
+                        ctx.fillRect(rx, ry, w, h);
+                        ctx.strokeStyle = style.facetColor;
+                        ctx.lineWidth = 1 * scaleFactor;
+                        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + w, ry); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx, ry + h); ctx.stroke();
+                        ctx.strokeStyle = style.shadowColor; ctx.globalAlpha = 0.4;
+                        ctx.beginPath(); ctx.moveTo(rx + w * 0.8, ry); ctx.lineTo(rx + w * 0.8, ry + h); ctx.stroke();
+                        ctx.restore();
+                    } else if (style.type === 'circles') {
+                        ctx.beginPath();
+                        ctx.fillStyle = dialSettings.indexColor;
+                        ctx.arc(x, y, baseWid / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else if (style.type === 'custom' && customMarkerImg) {
+                        ctx.save();
+                        ctx.translate(x, y);
+                        if (dialSettings.rotateMarkers) {
+                            ctx.rotate(angle + Math.PI / 2);
+                        }
+                        const imgScale = (baseLen / 50); // Scale is driven by the indexSize slider
+                        const w = customMarkerImg.width * imgScale;
+                        const h = customMarkerImg.height * imgScale;
+                        ctx.drawImage(customMarkerImg, -w / 2, -h / 2, w, h);
+                        ctx.restore();
+                    } else {
+                        ctx.save();
+                        ctx.translate(centerX, centerY);
+                        ctx.rotate(angle + Math.PI / 2);
+                        const w = (i % 3 === 0 ? baseWid * 1.5 : baseWid);
+                        const h = (i % 3 === 0 ? baseLen : baseLen * 0.8);
+                        ctx.fillStyle = dialSettings.indexColor;
+                        ctx.fillRect(-w/2, -drawRadius - h/2 + 15 * scaleFactor, w, h);
+                        ctx.restore();
+                    }
+                }
+                ctx.restore();
+            };
+
+            // High-Performance 3D Dome refractor with Flat Inner Core option & specular shading engine
+            const applyDomeWarp = (sourceCanvas, destCtx, centerX, centerY, radius, settings) => {
+                const width = sourceCanvas.width;
+                const height = sourceCanvas.height;
+                const srcCtx = sourceCanvas.getContext('2d');
+                const srcData = srcCtx.getImageData(0, 0, width, height);
+                const dstData = destCtx.createImageData(width, height);
+                
+                const srcPixels = srcData.data;
+                const dstPixels = dstData.data;
+                
+                const curvature = settings.domeCurvature / 100;
+                const domeStart = (settings.domeStartRadius !== undefined ? settings.domeStartRadius : 0) / 100;
+                
+                const radAngle = (settings.domeLightAngle * Math.PI) / 180;
+                const lx = Math.cos(radAngle) * 0.707;
+                const ly = Math.sin(radAngle) * 0.707;
+                const lz = 0.707;
+                
+                const shineCoeff = settings.domeGlassShine / 100;
+                
+                const rMax = Math.ceil(radius);
+                const yMin = Math.max(0, centerY - rMax);
+                const yMax = Math.min(height - 1, centerY + rMax);
+                const xMin = Math.max(0, centerX - rMax);
+                const xMax = Math.min(width - 1, centerX + rMax);
+
+                // Pre-fill destination buffer with transparent/source pixels
+                for (let i = 0; i < srcPixels.length; i++) {
+                    dstPixels[i] = srcPixels[i];
+                }
+                
+                for (let y = yMin; y <= yMax; y++) {
+                    const dy = y - centerY;
+                    const dySq = dy * dy;
+                    const yOffset = y * width;
+                    for (let x = xMin; x <= xMax; x++) {
+                        const dx = x - centerX;
+                        const rSq = dx * dx + dySq;
+                        const r = Math.sqrt(rSq);
+                        const idx = (yOffset + x) * 4;
+                        
+                        if (r > radius) continue;
+                        
+                        const u = r / radius; // normalized radius [0, 1]
+                        let uSrc = u;
+                        let nx = 0;
+                        let ny = 0;
+                        let nz = 1;
+
+                        if (u >= domeStart) {
+                            // Normalize the curved outer section onto [0, 1]
+                            const denom = 1.0 - domeStart;
+                            const t = denom > 0 ? (u - domeStart) / denom : 0;
+                            
+                            // Progressive warp: flat at domeStart, warping progressively towards the outer edge
+                            const bulge = curvature * t * (1.0 - t);
+                            uSrc = domeStart + denom * t * (1.0 + bulge);
+                            
+                            // Clamp safely to prevent out-of-bounds pixel lookups
+                            uSrc = Math.max(0, Math.min(1, uSrc));
+
+                            // Normal vectors tilt progressively along the warped area
+                            nx = (dx / radius) * t * curvature;
+                            ny = (dy / radius) * t * curvature;
+                            const nzSq = 1.0 - nx * nx - ny * ny;
+                            nz = nzSq > 0 ? Math.sqrt(nzSq) : 0;
+                        }
+                        
+                        const factor = r > 0 ? (uSrc * radius) / r : 0;
+                        const srcX = centerX + dx * factor;
+                        const srcY = centerY + dy * factor;
+                        
+                        // Bilinear interpolation
+                        const x0 = Math.floor(srcX);
+                        const x1 = Math.min(width - 1, x0 + 1);
+                        const y0 = Math.floor(srcY);
+                        const y1 = Math.min(height - 1, y0 + 1);
+                        
+                        const tx = srcX - x0;
+                        const ty = srcY - y0;
+                        
+                        const idx00 = (y0 * width + x0) * 4;
+                        const idx10 = (y0 * width + x1) * 4;
+                        const idx01 = (y1 * width + x0) * 4;
+                        const idx11 = (y1 * width + x1) * 4;
+                        
+                        const rVal = (1 - ty) * ((1 - tx) * srcPixels[idx00] + tx * srcPixels[idx10]) + ty * ((1 - tx) * srcPixels[idx01] + tx * srcPixels[idx11]);
+                        const gVal = (1 - ty) * ((1 - tx) * srcPixels[idx00+1] + tx * srcPixels[idx10+1]) + ty * ((1 - tx) * srcPixels[idx01+1] + tx * srcPixels[idx11+1]);
+                        const bVal = (1 - ty) * ((1 - tx) * srcPixels[idx00+2] + tx * srcPixels[idx10+2]) + ty * ((1 - tx) * srcPixels[idx01+2] + tx * srcPixels[idx11+2]);
+                        const aVal = (1 - ty) * ((1 - tx) * srcPixels[idx00+3] + tx * srcPixels[idx10+3]) + ty * ((1 - tx) * srcPixels[idx01+3] + tx * srcPixels[idx11+3]);
+                        
+                        const nLen = Math.sqrt(nx * nx + ny * ny + nz * nz);
+                        const nnx = nLen > 0 ? nx / nLen : 0;
+                        const nny = nLen > 0 ? ny / nLen : 0;
+                        const nnz = nLen > 0 ? nz / nLen : 1;
+                        
+                        // Blinn-Phong lighting specular glint highlight
+                        const dotNL = Math.max(0, nnx * lx + nny * ly + nnz * lz);
+                        
+                        const hx = lx;
+                        const hy = ly;
+                        const hz = lz + 1.0;
+                        const hLen = Math.sqrt(hx * hx + hy * hy + hz * hz);
+                        const nhx = hx / hLen;
+                        const nhy = hz / hLen;
+                        const nhz = hz / hLen;
+                        
+                        const dotNH = Math.max(0, nnx * nhx + nny * nhy + nnz * nhz);
+                        const specular = Math.pow(dotNH, 16) * shineCoeff;
+                        
+                        const ambient = 0.85;
+                        const litIntensity = ambient + dotNL * 0.15;
+                        
+                        dstPixels[idx] = Math.min(255, rVal * litIntensity + specular * 255);
+                        dstPixels[idx+1] = Math.min(255, gVal * litIntensity + specular * 255);
+                        dstPixels[idx+2] = Math.min(255, bVal * litIntensity + specular * 255);
+                        dstPixels[idx+3] = aVal;
+                    }
+                }
+                destCtx.putImageData(dstData, 0, 0);
+            };
+
+            const drawDialToContext = (ctx, centerX, centerY, radius, scale) => {
+                ctx.save();
+                // Offscreen drawing setup for high quality projection warping
+                const size = Math.ceil(radius * 2);
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = size;
+                tempCanvas.height = size;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                const flatRadius = radius;
+                const flatCenterX = size / 2;
+                const flatCenterY = size / 2;
+                
+                tempCtx.save();
+                tempCtx.beginPath(); tempCtx.arc(flatCenterX, flatCenterY, flatRadius, 0, Math.PI * 2);
+                
+                // Only paint background color if transparent dial mode is false
+                if (!dialSettings.transparentBg) {
+                    tempCtx.fillStyle = '#fff'; tempCtx.fill();
+                }
+                tempCtx.clip();
+                
+                layers.forEach((layer) => {
+                    if (layer.type === 'image') {
+                        const dw = layer.img.width * layer.scale * scale;
+                        const dh = layer.img.height * layer.scale * scale;
+                        tempCtx.save();
+                        tempCtx.translate(flatCenterX + (layer.x - 250) * scale, flatCenterY + (layer.y - 250) * scale);
+                        tempCtx.rotate((layer.rotation || 0) * Math.PI / 180);
+                        tempCtx.globalAlpha = layer.opacity !== undefined ? layer.opacity : 1.0;
+                        tempCtx.drawImage(layer.img, -dw / 2, -dh / 2, dw, dh);
+                        tempCtx.restore();
+                    } else if (layer.type === 'text') {
+                        drawText(tempCtx, layer, flatCenterX, flatCenterY, scale);
+                    }
+                });
+                tempCtx.restore();
+                drawIndices(tempCtx, flatCenterX, flatCenterY, scale);
+                
+                if (dialSettings.showCenterDot) {
+                    const style = PRESET_INDEX_STYLES.find(s => s.id === dialSettings.indexStyle);
+                    const dotColor = (style && style.baseColor) ? style.baseColor : dialSettings.indexColor;
+                    tempCtx.save();
+                    tempCtx.shadowBlur = 3 * scale; tempCtx.shadowColor = 'rgba(0,0,0,0.5)'; tempCtx.shadowOffsetX = 1 * scale; tempCtx.shadowOffsetY = 1 * scale;
+                    tempCtx.beginPath(); tempCtx.arc(flatCenterX, flatCenterY, 4.5 * scale, 0, Math.PI * 2);
+                    tempCtx.fillStyle = dotColor; tempCtx.fill();
+                    tempCtx.shadowBlur = 0; tempCtx.strokeStyle = '#fff'; tempCtx.lineWidth = 1 * scale; tempCtx.stroke();
+                    tempCtx.restore();
+                }
+                
+                if (dialSettings.domeEnabled) {
+                    const warpedCanvas = document.createElement('canvas');
+                    warpedCanvas.width = size;
+                    warpedCanvas.height = size;
+                    const warpedCtx = warpedCanvas.getContext('2d');
+                    
+                    applyDomeWarp(tempCanvas, warpedCtx, flatCenterX, flatCenterY, flatRadius, dialSettings);
+                    ctx.drawImage(warpedCanvas, centerX - flatCenterX, centerY - flatCenterY);
+                } else {
+                    ctx.drawImage(tempCanvas, centerX - flatCenterX, centerY - flatCenterY);
+                }
+                ctx.restore();
+            };
+
+            const drawCanvas = useCallback(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, 500, 500);
+
+                // Draw a checkerboard pattern inside the watch dial circle boundary on the screen editor for designer clarity
+                if (dialSettings.transparentBg) {
+                    ctx.save();
+                    ctx.beginPath(); ctx.arc(250, 250, 220, 0, Math.PI * 2);
+                    ctx.clip();
+                    const checkSize = 12;
+                    for (let y = 30; y < 470; y += checkSize) {
+                        for (let x = 30; x < 470; x += checkSize) {
+                            ctx.fillStyle = ((Math.floor(x / checkSize) + Math.floor(y / checkSize)) % 2 === 0) ? '#f3f4f6' : '#e2e8f0';
+                            ctx.fillRect(x, y, checkSize, checkSize);
+                        }
+                    }
+                    ctx.restore();
+                }
+
+                drawDialToContext(ctx, 250, 250, 220, 1);
+                ctx.beginPath(); ctx.arc(250, 250, 220, 0, Math.PI * 2);
+                ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2; ctx.stroke();
+            }, [layers, dialSettings, customMarkerImg]);
+
+            const drawWatchPreview = useCallback(() => {
+                if (!showPreview || !previewCanvasRef.current) return;
+                const canvas = previewCanvasRef.current;
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (previewPhoto) {
+                    ctx.save();
+                    ctx.translate(canvas.width/2, canvas.height/2);
+                    ctx.scale(previewConfig.scale, previewConfig.scale);
+                    const imgRatio = previewPhoto.width / previewPhoto.height;
+                    const dWidth = canvas.width; const dHeight = canvas.width / imgRatio;
+                    ctx.drawImage(previewPhoto, -dWidth/2, -dHeight/2, dWidth, dHeight); ctx.restore();
+                } else {
+                    ctx.fillStyle = '#f8fafc'; ctx.fillRect(0,0,canvas.width, canvas.height);
+                    ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'center'; ctx.font = 'bold 11px Inter';
+                    ctx.fillText(`Upload model photo to preview`, canvas.width/2, canvas.height/2);
+                }
+                drawDialToContext(ctx, previewConfig.x, previewConfig.y, previewConfig.r, previewConfig.r/220);
+                const drawDigitalHand = (angle, len, width) => {
+                    ctx.save(); ctx.translate(previewConfig.x, previewConfig.y); ctx.rotate(angle);
+                    ctx.fillStyle = '#BBB'; ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5;
+                    ctx.beginPath(); ctx.moveTo(-width/2, 0); ctx.lineTo(0, -len); ctx.lineTo(width/2, 0);
+                    ctx.fill(); ctx.stroke(); ctx.restore();
+                };
+                drawDigitalHand(-Math.PI * 0.6, previewConfig.r * 0.5, 10);
+                drawDigitalHand(Math.PI * 0.3, previewConfig.r * 0.8, 6);
+                ctx.save(); ctx.translate(previewConfig.x, previewConfig.y); ctx.rotate(Math.PI * 0.85); ctx.strokeStyle = '#D32F2F'; ctx.lineWidth = 1.5;
+                ctx.beginPath(); ctx.moveTo(0, 15); ctx.lineTo(0, -previewConfig.r * 0.9); ctx.stroke(); ctx.restore();
+            }, [showPreview, previewPhoto, previewConfig, layers, dialSettings, customMarkerImg]);
+
+            useEffect(() => { drawCanvas(); }, [drawCanvas]);
+            useEffect(() => { drawWatchPreview(); }, [drawWatchPreview]);
+
+            // Unified font loaded listener logic
+            useEffect(() => {
+                const handleFontsLoaded = () => {
+                    drawCanvas();
+                    drawWatchPreview();
+                };
+                document.fonts.addEventListener('loadingdone', handleFontsLoaded);
+                document.fonts.ready.then(handleFontsLoaded);
+                return () => {
+                    document.fonts.removeEventListener('loadingdone', handleFontsLoaded);
+                };
+            }, [drawCanvas, drawWatchPreview]);
+
+            // Unified input tracking
+            const getCoords = (e) => {
+                const rect = e.target.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return { x: clientX - rect.left, y: clientY - rect.top };
+            };
+
+            const handleInputStart = (e, isPreview = false) => {
+                const coords = getCoords(e);
+                if (isPreview) {
+                    isDraggingFaceRef.current = true;
+                    const factorX = 500 / e.target.clientWidth;
+                    const factorY = 650 / e.target.clientHeight;
+                    previewDragRef.current = { startMouseX: coords.x * factorX, startMouseY: coords.y * factorY, startFaceX: previewConfig.x, startFaceY: previewConfig.y };
+                } else if (selectedLayerIndex !== null) {
+                    isDraggingRef.current = true;
+                    mainDragRef.current = { startMouseX: coords.x, startMouseY: coords.y, initialX: layers[selectedLayerIndex].x, initialY: layers[selectedLayerIndex].y };
+                }
+            };
+
+            const handleInputMove = (e, isPreview = false) => {
+                const coords = getCoords(e);
+                if (isPreview && isDraggingFaceRef.current) {
+                    const factorX = 500 / e.target.clientWidth;
+                    const factorY = 650 / e.target.clientHeight;
+                    const dx = (coords.x * factorX) - previewDragRef.current.startMouseX;
+                    const dy = (coords.y * factorY) - previewDragRef.current.startMouseY;
+                    setPreviewConfig(prev => ({ ...prev, x: previewDragRef.current.startFaceX + dx, y: previewDragRef.current.startFaceY + dy }));
+                } else if (!isPreview && isDraggingRef.current && selectedLayerIndex !== null) {
+                    const dx = coords.x - mainDragRef.current.startMouseX;
+                    const dy = coords.y - mainDragRef.current.startMouseY;
+                    const newLayers = [...layers];
+                    newLayers[selectedLayerIndex].x = mainDragRef.current.initialX + dx;
+                    newLayers[selectedLayerIndex].y = mainDragRef.current.initialY + dy;
+                    setLayers(newLayers);
+                }
+            };
+
+            const handleInputEnd = () => {
+                isDraggingRef.current = false;
+                isDraggingFaceRef.current = false;
+            };
+
+            const downloadDialImage = () => {
+                const imgCanvas = document.createElement('canvas'); imgCanvas.width = 2000; imgCanvas.height = 2000;
+                const iCtx = imgCanvas.getContext('2d'); iCtx.save(); iCtx.beginPath(); iCtx.arc(1000, 1000, 880, 0, Math.PI * 2); iCtx.clip();
+                drawDialToContext(iCtx, 1000, 1000, 880, 4); iCtx.restore();
+                const link = document.createElement('a'); 
+                
+                // Download as transparent png if transparentBg is active, otherwise compressed jpg
+                if (dialSettings.transparentBg) {
+                    link.download = `dial_${dialSettings.diameterMm}mm.png`; 
+                    link.href = imgCanvas.toDataURL('image/png');
+                } else {
+                    link.download = `dial_${dialSettings.diameterMm}mm.jpg`; 
+                    link.href = imgCanvas.toDataURL('image/jpeg', 0.95);
+                }
+                link.click();
+            };
+
+            const generatePrint = () => {
+                const paper = PAPER_SIZES.find(p => p.id === dialSettings.paperSize);
+                const paperWidthPx = Math.round((paper.wMm * MM_TO_INCH) * DPI);
+                const paperHeightPx = Math.round((paper.hMm * MM_TO_INCH) * DPI);
+                
+                const printCanvas = document.createElement('canvas'); 
+                printCanvas.width = paperWidthPx; printCanvas.height = paperHeightPx;
+                const pCtx = printCanvas.getContext('2d'); 
+                pCtx.fillStyle = '#FFFFFF'; pCtx.fillRect(0, 0, paperWidthPx, paperHeightPx);
+
+                // Build robust repeating layout generation to fill the paper sheet completely
+                let itemsToPrint = [];
+                if (batchList.length > 0) {
+                    let batchIndex = 0;
+                    let currentX = 0;
+                    let currentY = 0;
+                    let currentRowHeight = 0;
+                    let safetyLimit = 500; 
+
+                    while (currentY < paperHeightPx && safetyLimit > 0) {
+                        safetyLimit--;
+                        const batchItem = batchList[batchIndex % batchList.length];
+                        const dMm = parseFloat(batchItem.diameterMm) || parseFloat(dialSettings.diameterMm);
+                        const neededSizePx = (dMm + 5) * MM_TO_INCH * DPI; 
+
+                        if (currentX + neededSizePx > paperWidthPx) {
+                            currentX = 0;
+                            currentY += currentRowHeight;
+                            currentRowHeight = 0;
+                        }
+
+                        if (currentY + neededSizePx > paperHeightPx) {
+                            break;
+                        }
+
+                        itemsToPrint.push({
+                            type: 'uploaded',
+                            img: batchItem.img,
+                            diameterMm: dMm,
+                            name: batchItem.name,
+                            x: currentX,
+                            y: currentY,
+                            sizePx: neededSizePx
+                        });
+
+                        currentX += neededSizePx;
+                        currentRowHeight = Math.max(currentRowHeight, neededSizePx);
+                        batchIndex++;
+                    }
+                } else {
+                    const singleSizeMm = parseFloat(dialSettings.diameterMm);
+                    const neededSizePx = (singleSizeMm + 5) * MM_TO_INCH * DPI;
+                    let currentX = 0;
+                    let currentY = 0;
+                    let currentRowHeight = 0;
+                    
+                    while (currentY < paperHeightPx) {
+                        if (currentX + neededSizePx > paperWidthPx) {
+                            currentX = 0;
+                            currentY += currentRowHeight;
+                            currentRowHeight = 0;
+                        }
+                        if (currentY + neededSizePx > paperHeightPx) {
+                            break;
+                        }
+                        itemsToPrint.push({
+                            type: 'current',
+                            diameterMm: singleSizeMm,
+                            name: 'Current Design',
+                            x: currentX,
+                            y: currentY,
+                            sizePx: neededSizePx
+                        });
+                        currentX += neededSizePx;
+                        currentRowHeight = Math.max(currentRowHeight, neededSizePx);
+                    }
+                }
+
+                itemsToPrint.forEach((item, index) => {
+                    const dMm = item.diameterMm;
+                    const dialRadiusPx = (dMm * MM_TO_INCH * DPI) / 2;
+                    const neededSizePx = item.sizePx;
+
+                    const cx = item.x + neededSizePx / 2;
+                    const cy = item.y + neededSizePx / 2;
+
+                    pCtx.save();
+                    pCtx.translate(cx, cy);
+                    pCtx.beginPath();
+                    pCtx.arc(0, 0, dialRadiusPx, 0, Math.PI * 2);
+                    pCtx.clip();
+
+                    if (item.type === 'uploaded') {
+                        let drawSize = dialRadiusPx * 2;
+                        if (item.img.width === item.img.height) {
+                            drawSize = (dialRadiusPx * 2) * (2000 / 1760);
+                        }
+                        pCtx.drawImage(item.img, -drawSize / 2, -drawSize / 2, drawSize, drawSize);
+                    } else {
+                        const scale = (dialRadiusPx * 2) / 440;
+                        drawDialToContext(pCtx, 0, 0, dialRadiusPx, scale);
+                    }
+                    pCtx.restore();
+
+                    // Draw cutting boundary rings
+                    pCtx.beginPath();
+                    pCtx.arc(cx, cy, dialRadiusPx, 0, Math.PI * 2);
+                    pCtx.strokeStyle = '#CCCCCC';
+                    pCtx.lineWidth = 1;
+                    pCtx.stroke();
+
+                    // Diameter label outside cutting boundary
+                    pCtx.save();
+                    pCtx.font = 'bold 22px Inter, sans-serif'; 
+                    pCtx.fillStyle = '#94a3b8';
+                    pCtx.textAlign = 'center';
+                    pCtx.textBaseline = 'top';
+                    pCtx.fillText(`${dMm} mm`, cx, cy + dialRadiusPx + 4);
+                    pCtx.restore();
+                });
+
+                const link = document.createElement('a'); 
+                link.download = `dial_sheet_${dialSettings.diameterMm}mm_${paper.wMm}x${paper.hMm}mm.png`; 
+                link.href = printCanvas.toDataURL('image/png'); link.click();
+            };
+
+            const setIndexPreset = (pattern) => {
+                let mask = Array(12).fill(false);
+                if (pattern === 'all') mask = Array(12).fill(true);
+                if (pattern === 'cardinal') [0, 3, 6, 9].forEach(i => mask[i] = true);
+                if (pattern === '12only') mask[0] = true;
+                setDialSettings({...dialSettings, indexMask: mask});
+            };
+
+            const toggleIndice = (i) => {
+                const n = [...dialSettings.indexMask]; n[i] = !n[i];
+                setDialSettings({...dialSettings, indexMask: n});
+            };
+
+            const updateLayer = (key, val) => {
+                const n = [...layers]; n[selectedLayerIndex][key] = val; setLayers(n);
+            };
+
+            // Custom handler to add chosen custom index colors to recents list
+            const handleCustomColorPicked = (colorVal) => {
+                setDialSettings(prev => ({ ...prev, indexColor: colorVal }));
+                setRecentColors(prev => {
+                    const filtered = prev.filter(c => c.toLowerCase() !== colorVal.toLowerCase());
+                    return [colorVal, ...filtered].slice(0, 6);
+                });
+            };
+
+            // Reversed array mapping to visually sort highest indexes on top of sidebar
+            const reversedLayers = useMemo(() => {
+                return [...layers].reverse();
+            }, [layers]);
+
+            return (
+                <div className="flex flex-col h-screen overflow-hidden text-slate-800 no-select bg-[#1a0f0d]">
+                    <header className="bg-white border-b px-4 py-1 flex items-center justify-between shadow-sm z-10 shrink-0 h-10 lg:h-11">
+                        <div className="flex items-center gap-3">
+                            <div className="w-6 h-6 lg:w-7 lg:h-7 bg-orange-600 rounded flex items-center justify-center text-white font-black text-xs lg:text-sm italic shadow-md">K</div>
+                            <h1 className="text-[11px] lg:text-xs font-bold tracking-tight text-slate-700">Studio Lechol Zman <span className="text-[9px] lg:text-[10px] text-slate-400 font-normal ml-1 lg:ml-2 uppercase tracking-widest hidden sm:inline">Precision Designer</span></h1>
+                        </div>
+                        <div className="flex gap-1 lg:gap-2">
+                            <button onClick={() => setShowPreview(!showPreview)} className={`flex items-center gap-1.5 px-2 py-0.5 rounded font-bold text-[9px] lg:text-[10px] transition-all border ${showPreview ? 'bg-orange-50 border-orange-500 text-orange-600' : 'bg-white text-slate-600 border-slate-200'}`}><Icon name="eye" size={12}/> {showPreview ? 'CLOSE' : 'PREVIEW'}</button>
+                            <button onClick={downloadDialImage} className="flex items-center gap-1 bg-white text-slate-700 px-2 py-0.5 rounded font-bold text-[9px] lg:text-[10px] border shadow-sm"><Icon name="download" size={12}/> {dialSettings.transparentBg ? 'PNG' : 'JPG'}</button>
+                            <button onClick={generatePrint} className="flex items-center gap-1 bg-orange-600 hover:bg-orange-700 text-white px-2 py-0.5 rounded font-bold text-[9px] lg:text-[10px] shadow-md"><Icon name="printer" size={12}/> PRINT</button>
+                        </div>
+                    </header>
+
+                    <main className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+                        <aside className="w-full lg:w-[280px] bg-white border-b lg:border-b-0 lg:border-r overflow-y-auto p-3 lg:p-4 flex flex-col scrollbar-thin shrink-0 shadow-xl z-10 h-auto lg:h-full">
+                            
+                            {/* Collapsible Composition Section */}
+                            <section className="sidebar-section">
+                                <div className="flex items-center justify-between py-1 select-none">
+                                    <div 
+                                        className="flex items-center gap-1.5 cursor-pointer py-1 select-none flex-1"
+                                        onClick={() => setCompExpanded(!compExpanded)}
+                                    >
+                                        <h2 className="font-black text-[9px] uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                            <Icon name="layers" size={12}/> Composition
+                                        </h2>
+                                        <Icon name="chevron" size={12} className={`transition-transform duration-200 text-slate-400 ${compExpanded ? 'rotate-180' : ''}`} />
+                                    </div>
+                                    <div className="flex gap-1 shrink-0">
+                                        <button onClick={addTextLayer} className="px-1.5 py-0.5 bg-slate-50 hover:bg-slate-100 rounded border shadow-sm text-[8px] font-bold uppercase flex items-center gap-0.5" title="Add Text">
+                                            <Icon name="type" size={10}/>
+                                            <span>Text</span>
+                                        </button>
+                                        <label className="cursor-pointer px-1.5 py-0.5 bg-slate-50 hover:bg-slate-100 rounded border shadow-sm text-[8px] font-bold uppercase flex items-center gap-0.5">
+                                            <Icon name="upload" size={10}/>
+                                            <span>Image</span>
+                                            <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                {compExpanded && (
+                                    <div className="mt-2 space-y-2 animate-in fade-in duration-200">
+                                        <div className="space-y-1 max-h-24 lg:max-h-32 overflow-y-auto pr-1 mb-1.5">
+                                            {reversedLayers.map((layer, rIdx) => {
+                                                const actualIdx = layers.length - 1 - rIdx;
+                                                const isSelected = selectedLayerIndex === actualIdx;
+                                                return (
+                                                    <div 
+                                                        key={actualIdx} 
+                                                        draggable="true"
+                                                        onDragStart={(e) => handleDragStart(e, actualIdx)}
+                                                        onDragOver={handleDragOver}
+                                                        onDrop={(e) => handleDrop(e, actualIdx)}
+                                                        onClick={() => setSelectedLayerIndex(actualIdx)} 
+                                                        className={`flex items-center justify-between p-1 rounded border-2 cursor-pointer transition-all ${draggingIndex === actualIdx ? 'opacity-40' : ''} ${isSelected ? 'border-orange-500 bg-orange-50' : 'border-slate-50 bg-white hover:border-slate-200'}`}
+                                                    >
+                                                        <div className="flex items-center gap-1 truncate max-w-[120px]">
+                                                            <div className="text-slate-300 cursor-grab px-0.5">
+                                                                <Icon name="grip" size={10} />
+                                                            </div>
+                                                            <Icon name={layer.type === 'image' ? 'image' : 'type'} size={11} className="text-slate-400 shrink-0"/>
+                                                            <span className="text-[9px] font-bold truncate tracking-tight">{layer.type === 'image' ? layer.name : layer.text}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                            <button onClick={() => moveLayer(actualIdx, 'up')} disabled={actualIdx === layers.length - 1} className="text-slate-400 hover:text-orange-600 disabled:opacity-30 p-0.5" title="Bring Forward">
+                                                                <Icon name="arrowUp" size={11}/>
+                                                            </button>
+                                                            <button onClick={() => moveLayer(actualIdx, 'down')} disabled={actualIdx === 0} className="text-slate-400 hover:text-orange-600 disabled:opacity-30 p-0.5" title="Send Backward">
+                                                                <Icon name="arrowDown" size={11}/>
+                                                            </button>
+                                                            <button onClick={() => { setLayers(layers.filter((_, i) => i !== actualIdx)); setSelectedLayerIndex(null); }} className="text-slate-300 hover:text-red-500 p-0.5" title="Delete">
+                                                                <Icon name="trash" size={12}/>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        
+                                        {selectedLayerIndex !== null && (
+                                            <div className="p-2 bg-slate-50 rounded border space-y-1.5">
+                                                <div className="space-y-0.5">
+                                                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Scale/Zoom <span>{Math.round((layers[selectedLayerIndex].scale || 1)*100)}%</span></div>
+                                                    <input type="range" min="0.01" max="2" step="0.01" value={layers[selectedLayerIndex].scale || 1} onChange={(e) => updateLayer('scale', parseFloat(e.target.value))} className="w-full h-0.5 mx-1"/>
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Rotation <span>{layers[selectedLayerIndex].rotation || 0}°</span></div>
+                                                    <input type="range" min="0" max="360" value={layers[selectedLayerIndex].rotation || 0} onChange={(e) => updateLayer('rotation', parseInt(e.target.value))} className="w-full h-0.5 mx-1"/>
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Opacity <span>{Math.round((layers[selectedLayerIndex].opacity !== undefined ? layers[selectedLayerIndex].opacity : 1)*100)}%</span></div>
+                                                    <input type="range" min="0" max="1" step="0.01" value={layers[selectedLayerIndex].opacity !== undefined ? layers[selectedLayerIndex].opacity : 1} onChange={(e) => updateLayer('opacity', parseFloat(e.target.value))} className="w-full h-0.5 mx-1"/>
+                                                </div>
+                                                {layers[selectedLayerIndex].type === 'text' && (
+                                                    <>
+                                                        <div className="space-y-0.5">
+                                                            <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Text Content</div>
+                                                            <input type="text" value={layers[selectedLayerIndex].text} onChange={(e) => updateLayer('text', e.target.value)} className="w-full p-1 border rounded font-bold text-[9px] bg-white outline-none" placeholder="Label..."/>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <div className="flex-1 space-y-0.5">
+                                                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Font Family</div>
+                                                                <select 
+                                                                    value={layers[selectedLayerIndex].font} 
+                                                                    onChange={(e) => {
+                                                                        if (e.target.value === 'upload-custom-font') {
+                                                                            fontInputRef.current.click();
+                                                                        } else {
+                                                                            updateLayer('font', e.target.value);
+                                                                        }
+                                                                    }} 
+                                                                    className="w-full text-[9px] p-0.5 border rounded bg-white font-bold outline-none"
+                                                                >
+                                                                    {availableFonts.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                                                    <option value="upload-custom-font">➕ Upload Custom Font...</option>
+                                                                </select>
+                                                            </div>
+                                                            <div className="space-y-0.5">
+                                                                <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Color</div>
+                                                                <input type="color" value={layers[selectedLayerIndex].color} onChange={(e) => updateLayer('color', e.target.value)} className="w-8 h-5 rounded border p-0.5 bg-white cursor-pointer"/>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-0.5">
+                                                            <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Font Size <span>{layers[selectedLayerIndex].size}px</span></div>
+                                                            <input type="range" min="10" max="150" value={layers[selectedLayerIndex].size} onChange={(e) => updateLayer('size', parseInt(e.target.value))} className="w-full h-0.5 mx-1"/>
+                                                        </div>
+                                                        <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <input type="checkbox" id="curved" checked={layers[selectedLayerIndex].curved || false} onChange={(e) => updateLayer('curved', e.target.checked)} className="accent-orange-600 w-3 h-3"/>
+                                                                <label htmlFor="curved" className="text-[9px] font-black uppercase text-slate-500 italic cursor-pointer">Curved</label>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <input type="checkbox" id="isBold" checked={layers[selectedLayerIndex].isBold !== false} onChange={(e) => updateLayer('isBold', e.target.checked)} className="accent-orange-600 w-3 h-3"/>
+                                                                <label htmlFor="isBold" className="text-[9px] font-black uppercase text-slate-500 italic cursor-pointer">Bold</label>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <input type="checkbox" id="shadow" checked={layers[selectedLayerIndex].shadow || false} onChange={(e) => updateLayer('shadow', e.target.checked)} className="accent-orange-600 w-3 h-3"/>
+                                                                <label htmlFor="shadow" className="text-[9px] font-black uppercase text-slate-500 italic cursor-pointer">Shadow</label>
+                                                            </div>
+                                                        </div>
+                                                        {layers[selectedLayerIndex].curved && (
+                                                            <div className="space-y-1 pt-1 border-t border-slate-100">
+                                                                <div className="space-y-0.5">
+                                                                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Curve Radius <span>{layers[selectedLayerIndex].radius || 150}px</span></div>
+                                                                    <input type="range" min="20" max="250" value={layers[selectedLayerIndex].radius || 150} onChange={(e) => updateLayer('radius', parseInt(e.target.value))} className="w-full h-0.5 mx-1"/>
+                                                                </div>
+                                                                <div className="space-y-0.5">
+                                                                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Start Angle <span>{layers[selectedLayerIndex].startAngle || -90}°</span></div>
+                                                                    <input type="range" min="-360" max="360" value={layers[selectedLayerIndex].startAngle || -90} onChange={(e) => updateLayer('startAngle', parseInt(e.target.value))} className="w-full h-0.5 mx-1"/>
+                                                                </div>
+                                                                <div className="space-y-0.5">
+                                                                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Letter Spacing <span>{layers[selectedLayerIndex].spacing || 2}px</span></div>
+                                                                    <input type="range" min="-10" max="30" value={layers[selectedLayerIndex].spacing || 2} onChange={(e) => updateLayer('spacing', parseInt(e.target.value))} className="w-full h-0.5 mx-1"/>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+
+                            {/* Collapsible Indices Section */}
+                            <section className="sidebar-section">
+                                <div 
+                                    className="flex items-center justify-between cursor-pointer py-1 select-none"
+                                    onClick={() => setIndicesExpanded(!indicesExpanded)}
+                                >
+                                    <h2 className="font-black text-[9px] uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                        <Icon name="settings" size={11}/> Indices
+                                    </h2>
+                                    <Icon name="chevron" size={12} className={`transition-transform duration-200 text-slate-400 ${indicesExpanded ? 'rotate-180' : ''}`} />
+                                </div>
+                                
+                                {indicesExpanded && (
+                                    <div className="mt-2 space-y-2 animate-in fade-in duration-200">
+                                        
+                                        {/* Style Preset Selector placed FIRST inside Indices section */}
+                                        <div className="space-y-1">
+                                            <span className="text-[8px] font-black uppercase text-slate-400">Style Preset</span>
+                                            <select value={dialSettings.indexStyle} onChange={(e) => setDialSettings({...dialSettings, indexStyle: e.target.value})} className="w-full p-1 border rounded text-[10px] font-bold uppercase bg-white outline-none focus:ring-1 focus:ring-orange-500">{PRESET_INDEX_STYLES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+                                        </div>
+
+                                        <div className="flex items-center justify-between mb-1 pt-1">
+                                            <span className="text-[8px] font-black uppercase text-slate-400">Settings</span>
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="flex items-center gap-1">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        id="transparentBg" 
+                                                        checked={dialSettings.transparentBg || false} 
+                                                        onChange={(e) => setDialSettings({...dialSettings, transparentBg: e.target.checked})} 
+                                                        className="w-3 h-3 accent-orange-600"
+                                                    />
+                                                    <label htmlFor="transparentBg" className="text-[8px] font-black uppercase text-orange-600 cursor-pointer" title="Make Dial Base Transparent">Transparent</label>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <input type="checkbox" id="shIndex" checked={dialSettings.showShadow} onChange={(e) => setDialSettings({...dialSettings, showShadow: e.target.checked})} className="w-3 h-3 accent-slate-600"/>
+                                                    <label htmlFor="shIndex" className="text-[8px] font-black uppercase text-slate-400 cursor-pointer">Shadow</label>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <input type="checkbox" id="shDot" checked={dialSettings.showCenterDot} onChange={(e) => setDialSettings({...dialSettings, showCenterDot: e.target.checked})} className="w-3 h-3 accent-orange-600"/>
+                                                    <label htmlFor="shDot" className="text-[8px] font-black uppercase text-orange-600 tracking-tighter cursor-pointer">Dot</label>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Obvious Color Map spectrum picker with Recents */}
+                                        <div className="space-y-1.5 bg-slate-50/50 p-2 rounded border border-slate-100/50">
+                                            <div className="flex items-center justify-between text-[8px] font-black text-slate-400 uppercase tracking-tighter">
+                                                <span>Index Color</span>
+                                                <span className="text-slate-500 font-mono text-[9px]">{dialSettings.indexColor}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {/* Large and Obvious Custom Color Palette Trigger */}
+                                                <label 
+                                                    className="w-7 h-7 rounded border border-slate-300 shadow-sm flex items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95 shrink-0 relative overflow-hidden" 
+                                                    style={{ background: 'conic-gradient(from 0deg, red, yellow 17%, green 33%, cyan 50%, blue 66%, magenta 83%, red 100%)' }}
+                                                    title="Open Custom Color Palette"
+                                                >
+                                                    <input 
+                                                        type="color" 
+                                                        value={dialSettings.indexColor} 
+                                                        onChange={(e) => handleCustomColorPicked(e.target.value)} 
+                                                        className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                                                    />
+                                                    <div className="absolute inset-1 bg-white/20 rounded-full border border-white/40 flex items-center justify-center pointer-events-none">
+                                                        <Icon name="colorPalete" size={10} className="text-slate-800" />
+                                                    </div>
+                                                </label>
+
+                                                {/* Predefined Core Colors Map */}
+                                                <div className="flex gap-1 items-center flex-wrap">
+                                                    {COLORS.map(c => (
+                                                        <button 
+                                                            key={c.value} 
+                                                            onClick={() => setDialSettings(prev => ({ ...prev, indexColor: c.value }))} 
+                                                            className={`w-4 h-4 rounded border transition-all ${dialSettings.indexColor === c.value ? 'ring-2 ring-orange-500 scale-105 border-transparent' : 'border-slate-300 hover:border-slate-500'}`} 
+                                                            style={{ backgroundColor: c.value }}
+                                                            title={c.name}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Remembers last 6 Customized Colors */}
+                                            {recentColors.length > 0 && (
+                                                <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-200/50">
+                                                    <span className="text-[7px] font-black uppercase text-slate-400 tracking-tight shrink-0">Recent:</span>
+                                                    <div className="flex gap-1 flex-wrap">
+                                                        {recentColors.map((col, idx) => (
+                                                            <button
+                                                                key={idx}
+                                                                onClick={() => setDialSettings(prev => ({ ...prev, indexColor: col }))}
+                                                                className={`w-3.5 h-3.5 rounded border transition-all ${dialSettings.indexColor.toLowerCase() === col.toLowerCase() ? 'ring-1 ring-orange-500 border-orange-500 scale-105' : 'border-slate-300 hover:border-slate-400'}`}
+                                                                style={{ backgroundColor: col }}
+                                                                title={col}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="relative mb-2">
+                                            <button onClick={() => setShowIndiceList(!showIndiceList)} className="w-full flex items-center justify-between p-1 bg-white border rounded text-[9px] font-bold uppercase shadow-sm">
+                                                Individual Toggles
+                                                <Icon name="chevron" size={11} className={`transition-transform duration-300 ${showIndiceList ? 'rotate-180' : ''}`} />
+                                            </button>
+                                            {showIndiceList && (
+                                                <div className="absolute top-full left-0 w-full checklist-dropdown shadow-xl p-2 border grid grid-cols-3 gap-1">
+                                                    {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((hr, i) => {
+                                                        const idx = hr === 12 ? 0 : hr;
+                                                        const isActive = dialSettings.indexMask[idx];
+                                                        return (
+                                                            <button key={hr} onClick={() => toggleIndice(idx)} className={`flex items-center justify-center gap-1 p-0.5 rounded text-[8px] font-black border transition-all ${isActive ? 'bg-orange-600 text-white' : 'bg-slate-50 text-slate-400'}`}>
+                                                                {hr}h {isActive && <Icon name="check" size={8} />}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="grid grid-cols-4 gap-0.5 mb-2">
+                                            {['all', 'cardinal', '12only'].map(p => <button key={p} onClick={() => setIndexPreset(p)} className="text-[8px] font-black bg-white border p-0.5 rounded uppercase hover:bg-orange-50 tracking-tighter transition-colors">{p}</button>)}
+                                            <button onClick={() => setIndexPreset('none')} className="text-[8px] font-black bg-white border p-0.5 rounded uppercase hover:bg-red-50 text-red-400">Clear</button>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <div className="space-y-0.5">
+                                                <div className="text-[8px] font-black uppercase text-slate-400">Marker Length</div>
+                                                <input type="range" min="5" max="100" value={dialSettings.indexSize} onChange={(e) => setDialSettings({...dialSettings, indexSize: parseInt(e.target.value)})} className="w-full h-0.5"/>
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <div className="text-[8px] font-black uppercase text-slate-400">Marker Width</div>
+                                                <input type="range" min="1" max="40" value={dialSettings.indexWidth} onChange={(e) => setDialSettings({...dialSettings, indexWidth: parseInt(e.target.value)})} className="w-full h-0.5"/>
+                                            </div>
+                                            <div className="space-y-0.5">
+                                                <div className="text-[8px] font-black uppercase text-slate-400">Ring Radius</div>
+                                                <input type="range" min="50" max="215" value={dialSettings.indexRadius} onChange={(e) => setDialSettings({...dialSettings, indexRadius: parseInt(e.target.value)})} className="w-full h-0.5"/>
+                                            </div>
+                                        </div>
+                                        
+                                        {dialSettings.indexStyle === 'custom-image' && (
+                                            <div className="mt-2 p-2 bg-slate-50 rounded border border-dashed border-slate-300 space-y-1.5">
+                                                <label className="flex items-center justify-between cursor-pointer group">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[10px] font-bold text-slate-600">Upload Marker</span>
+                                                        <span className="text-[8px] text-slate-400">Repeated 12 times</span>
+                                                    </div>
+                                                    <Icon name="upload" size={14} className="text-orange-600 group-hover:scale-110 transition-transform" />
+                                                    <input type="file" className="hidden" accept="image/*" onChange={handleCustomMarkerUpload} />
+                                                </label>
+                                                {customMarkerImg && (
+                                                    <div className="flex items-center gap-2 pt-1.5 border-t border-slate-200">
+                                                        <input type="checkbox" id="rotateMarkers" checked={dialSettings.rotateMarkers} onChange={(e) => setDialSettings({...dialSettings, rotateMarkers: e.target.checked})} className="w-3 h-3 accent-orange-600" />
+                                                        <label htmlFor="rotateMarkers" className="text-[9px] font-black uppercase text-slate-500">Rotate with dial</label>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+
+                            {/* Collapsible 3D Dome Section */}
+                            <section className="sidebar-section">
+                                <div 
+                                    className="flex items-center justify-between cursor-pointer py-1 select-none"
+                                    onClick={() => setDomeExpanded(!domeExpanded)}
+                                >
+                                    <h2 className="font-black text-[9px] uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                                        <span className="text-[11px]">🔮</span> 3D Dome Crystal
+                                    </h2>
+                                    <Icon name="chevron" size={12} className={`transition-transform duration-200 text-slate-400 ${domeExpanded ? 'rotate-180' : ''}`} />
+                                </div>
+                                
+                                {domeExpanded && (
+                                    <div className="mt-2 space-y-2.5 animate-in fade-in duration-200">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[8px] font-black uppercase text-slate-400">Glass Crystal</span>
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    type="checkbox" 
+                                                    id="domeEnabled" 
+                                                    checked={dialSettings.domeEnabled} 
+                                                    onChange={(e) => setDialSettings({...dialSettings, domeEnabled: e.target.checked})} 
+                                                    className="w-3.5 h-3.5 accent-orange-600 cursor-pointer"
+                                                />
+                                                <label htmlFor="domeEnabled" className="text-[9px] font-black uppercase text-orange-600 tracking-tighter cursor-pointer">Enable 3D Dome</label>
+                                            </div>
+                                        </div>
+
+                                        {dialSettings.domeEnabled && (
+                                            <div className="space-y-2.5 bg-slate-50/50 p-2 rounded border border-slate-100/50">
+                                                <div className="space-y-0.5">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-slate-400">
+                                                        <span>Curvature</span>
+                                                        <span className="text-slate-500 font-bold">{dialSettings.domeCurvature}%</span>
+                                                    </div>
+                                                    <input 
+                                                        type="range" 
+                                                        min="-100" 
+                                                        max="100" 
+                                                        value={dialSettings.domeCurvature} 
+                                                        onChange={(e) => setDialSettings({...dialSettings, domeCurvature: parseInt(e.target.value)})} 
+                                                        className="w-full h-1"
+                                                    />
+                                                    <div className="flex justify-between text-[7px] text-slate-400 font-bold">
+                                                        <span>Concave Cup</span>
+                                                        <span>Flat</span>
+                                                        <span>Convex Dome</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-0.5">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-slate-400">
+                                                        <span>Curvature Start Radius</span>
+                                                        <span className="text-slate-500 font-bold">{dialSettings.domeStartRadius}%</span>
+                                                    </div>
+                                                    <input 
+                                                        type="range" 
+                                                        min="0" 
+                                                        max="95" 
+                                                        value={dialSettings.domeStartRadius} 
+                                                        onChange={(e) => setDialSettings({...dialSettings, domeStartRadius: parseInt(e.target.value)})} 
+                                                        className="w-full h-1"
+                                                    />
+                                                    <div className="flex justify-between text-[7px] text-slate-400 font-bold">
+                                                        <span>0% (Center)</span>
+                                                        <span>95% (Extreme Edge)</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-0.5">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-slate-400">
+                                                        <span>Specular Shine</span>
+                                                        <span className="text-slate-500 font-bold">{dialSettings.domeGlassShine}%</span>
+                                                    </div>
+                                                    <input 
+                                                        type="range" 
+                                                        min="0" 
+                                                        max="100" 
+                                                        value={dialSettings.domeGlassShine} 
+                                                        onChange={(e) => setDialSettings({...dialSettings, domeGlassShine: parseInt(e.target.value)})} 
+                                                        className="w-full h-1"
+                                                    />
+                                                </div>
+
+                                                <div className="space-y-0.5">
+                                                    <div className="flex justify-between text-[8px] font-black uppercase text-slate-400">
+                                                        <span>Light Angle</span>
+                                                        <span className="text-slate-500 font-bold">{dialSettings.domeLightAngle}°</span>
+                                                    </div>
+                                                    <input 
+                                                        type="range" 
+                                                        min="0" 
+                                                        max="360" 
+                                                        value={dialSettings.domeLightAngle} 
+                                                        onChange={(e) => setDialSettings({...dialSettings, domeLightAngle: parseInt(e.target.value)})} 
+                                                        className="w-full h-1"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+
+                            {/* Side-by-side Output Controls (Always Open) */}
+                            <section className="sidebar-section">
+                                <h2 className="font-black text-[9px] uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1.5"><Icon name="download" size={11}/> Output</h2>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-0.5">
+                                        <div className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Diam (mm)</div>
+                                        <input type="number" value={dialSettings.diameterMm} onChange={(e) => setDialSettings({...dialSettings, diameterMm: e.target.value})} className="w-full p-1 border rounded text-[10px] font-bold bg-white text-center outline-none focus:ring-1 focus:ring-orange-500"/>
+                                    </div>
+                                    <div className="space-y-0.5">
+                                        <div className="text-[8px] font-black uppercase text-slate-400 tracking-tighter">Paper Size</div>
+                                        <select value={dialSettings.paperSize} onChange={(e) => setDialSettings({...dialSettings, paperSize: e.target.value})} className="w-full p-1 border rounded text-[10px] font-bold bg-white text-center outline-none focus:ring-1 focus:ring-orange-500">
+                                            {PAPER_SIZES.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Batch Print Collection Queue (Always Open) */}
+                            <section>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <h2 className="font-black text-[9px] uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Icon name="printer" size={11}/> Print Queue</h2>
+                                    <button onClick={addCurrentToBatch} className="text-[9px] font-bold text-orange-600 hover:text-orange-700 uppercase flex items-center gap-0.5">
+                                        <Icon name="plus" size={10}/> Add Current
+                                    </button>
+                                </div>
+                                <div className="border border-dashed border-slate-200 rounded p-1.5 bg-slate-50 flex items-center justify-between mb-2">
+                                    <span className="text-[8px] font-bold text-slate-400 uppercase">Upload Dials</span>
+                                    <label className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2 py-0.5 rounded text-[8px] font-bold uppercase cursor-pointer">
+                                        Files
+                                        <input type="file" multiple onChange={handleBatchFilesUpload} className="hidden" accept="image/*"/>
+                                    </label>
+                                </div>
+                                <div className="grid grid-cols-3 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                                    {batchList.map((item) => (
+                                        <div key={item.id} className="relative bg-slate-50 rounded-lg p-1.5 border border-slate-200 shadow-sm flex flex-col items-center gap-1">
+                                            <div className="relative w-10 h-10 border rounded bg-white overflow-hidden flex items-center justify-center p-0.5">
+                                                <img src={item.img.src} className="max-w-full max-h-full rounded-full object-cover" />
+                                                <button onClick={() => removeBatchItem(item.id)} className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[10px] font-bold shadow">
+                                                    ×
+                                                </button>
+                                            </div>
+                                            {/* Dynamic Custom Diameter input for this specific Queue dial element */}
+                                            <div className="flex items-center gap-0.5 mt-0.5">
+                                                <input 
+                                                    type="number" 
+                                                    value={item.diameterMm} 
+                                                    onChange={(e) => handleBatchDiameterChange(item.id, e.target.value)}
+                                                    className="w-9 text-[9px] font-black text-center border rounded bg-white p-0.5 outline-none focus:ring-1 focus:ring-orange-500" 
+                                                    title="Dial Diameter (mm)"
+                                                />
+                                                <span className="text-[7px] text-slate-400 font-bold">mm</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="text-[8px] text-slate-400 italic mt-1 leading-normal">
+                                    {batchList.length > 0 ? `${batchList.length} dial(s) in queue. Will tile dynamically using individual diameters.` : 'Queue empty. Output prints current canvas design repeatedly.'}
+                                </div>
+                            </section>
+                        </aside>
+
+                        {/* Design Canvas Workspace (Mahogany background) */}
+                        <div className="flex-1 relative flex items-center justify-center wood-grain p-2 lg:p-4 z-0 overflow-hidden">
+                            <div className="bg-white/10 backdrop-blur-sm p-4 lg:p-6 rounded-[40px] lg:rounded-[60px] canvas-shadow border-[4px] lg:border-[8px] border-white/20 relative flex-shrink-0 max-w-full">
+                                <canvas ref={canvasRef} width={500} height={500}
+                                    onPointerDown={handleInputStart} onPointerMove={handleInputMove} onPointerUp={handleInputEnd} onPointerLeave={handleInputEnd}
+                                    className={`rounded-full bg-white shadow-2xl cursor-crosshair touch-none ${selectedLayerIndex !== null ? 'cursor-move' : ''} w-[280px] h-[280px] lg:w-[480px] lg:h-[480px]`}
+                                />
+                                {layers.length === 0 && <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-[0.25]"><Icon name="upload" size={80} className="text-white lg:scale-[2]" /><p className="font-black mt-4 lg:mt-8 tracking-[0.5em] lg:tracking-[1em] text-sm lg:text-2xl text-center text-white">DESIGN DIAL</p></div>}
+                            </div>
+                        </div>
+
+                        {/* Watch Photo Preview Panel (Mahogany background) */}
+                        {showPreview && (
+                            <div className="w-full lg:w-[340px] wood-grain border-t lg:border-t-0 lg:border-l flex flex-col items-center p-3 shadow-2xl z-20 overflow-y-auto lg:overflow-hidden shrink-0">
+                                <div className="w-full bg-white/95 backdrop-blur-md rounded-lg border border-white p-2 mb-3 shadow-sm space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5"><Icon name="maximize" size={12} className="text-slate-500"/><span className="text-[9px] font-black text-slate-700 uppercase tracking-tighter">Preview Studio</span></div>
+                                        <label className="flex items-center gap-1 bg-orange-600 hover:bg-orange-700 text-white px-2 py-0.5 rounded cursor-pointer transition-colors shadow-md">
+                                            <Icon name="image" size={10}/>
+                                            <span className="text-[8px] font-bold uppercase">Watch Model Upload</span>
+                                            <input type="file" onChange={handleModelPhotoUpload} className="hidden" accept="image/*"/>
+                                        </label>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                                        <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Zoom</span><input type="range" min="0.1" max="3.0" step="0.01" value={previewConfig.scale} onChange={(e) => setPreviewConfig({...previewConfig, scale: parseFloat(e.target.value)})} className="flex-1 h-0.5 mx-2 accent-slate-400"/></div>
+                                        <div className="flex items-center justify-between"><span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Size</span><input type="range" min="10" max="300" value={previewConfig.r} onChange={(e) => setPreviewConfig({...previewConfig, r: parseInt(e.target.value)})} className="flex-1 h-0.5 mx-2 accent-slate-400"/></div>
+                                    </div>
+                                </div>
+                                <div className="watch-preview-shadow rounded-[40px] overflow-hidden bg-white/95 p-1.5 shrink-0 border-4 border-white/20 mb-4 lg:mb-0">
+                                    <canvas 
+                                        ref={previewCanvasRef} width={500} height={650} 
+                                        onPointerDown={(e) => handleInputStart(e, true)} onPointerMove={(e) => handleInputMove(e, true)} onPointerUp={handleInputEnd} onPointerLeave={handleInputEnd}
+                                        className="w-[280px] h-[364px] lg:w-[300px] lg:h-[390px] bg-white cursor-move rounded-[25px] touch-none" 
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </main>
+                    
+                    {/* Hidden inputs for custom font upload scoped directly within current context */}
+                    <input 
+                        type="file" 
+                        ref={fontInputRef} 
+                        className="hidden" 
+                        accept=".ttf,.otf,.woff" 
+                        onChange={handleFontUpload} 
+                    />
+
+                    <footer className="bg-slate-900 text-white px-6 py-1 lg:py-1.5 flex items-center justify-between text-[8px] lg:text-[9px] font-black tracking-widest uppercase italic shrink-0 h-8">
+                        <div className="flex items-center gap-6"><span className="text-orange-500 font-bold">Engine: Online</span><span>Resolution: 300 DPI</span></div>
+                        <span className="opacity-40 tracking-tighter italic">Studio Precision Tool © 2026</span>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
