@@ -1,0 +1,63 @@
+@tailwindcss base;
+@tailwindcss components;
+@tailwindcss utilities;
+
+body {
+  font-family: 'Inter', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  background-color: #1a0f0d;
+  color: #1e293b;
+}
+
+input[type="range"] {
+  accent-color: #ea580c;
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+/* High-Quality Warm Mahogany Wood Grain */
+.wood-grain {
+  background-color: #3b2314;
+  background-image: 
+    repeating-linear-gradient(180deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 4px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 80px),
+    radial-gradient(ellipse at center, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.45) 100%);
+  background-blend-mode: multiply, overlay, normal;
+}
+
+.canvas-shadow {
+  filter: drop-shadow(0 25px 50px rgba(0,0,0,0.65));
+}
+.no-select {
+  user-select: none;
+}
+.watch-preview-shadow {
+  filter: drop-shadow(0 20px 45px rgba(0,0,0,0.55));
+}
+.sidebar-section {
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.checklist-dropdown {
+  max-height: 180px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  z-index: 100;
+}
+
+.touch-none {
+  touch-action: none;
+}
