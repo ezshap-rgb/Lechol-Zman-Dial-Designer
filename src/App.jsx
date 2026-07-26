@@ -64,16 +64,19 @@ export function App() {
     const assetPresets = PRESET_INDEX_STYLES.filter(s => s.type === 'asset-image');
     const imagesMap = {};
     let loadedCount = 0;
+    const total = assetPresets.length;
+    if (total === 0) return;
+
+    const onFinished = (key, img) => {
+      if (img) imagesMap[key] = img;
+      loadedCount++;
+      if (loadedCount === total) setLoadedAssetImages({ ...imagesMap });
+    };
 
     assetPresets.forEach(preset => {
       const img = new Image();
-      img.onload = () => {
-        imagesMap[preset.src] = img;
-        loadedCount++;
-        if (loadedCount === assetPresets.length) {
-          setLoadedAssetImages(imagesMap);
-        }
-      };
+      img.onload  = () => onFinished(preset.src, img);
+      img.onerror = () => onFinished(preset.src, null);
       img.src = preset.src;
     });
   }, []);

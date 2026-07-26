@@ -2,6 +2,17 @@ import React, { useState } from 'react';
 import { Settings, ChevronDown, Check, Upload, Palette } from 'lucide-react';
 import { PRESET_INDEX_STYLES, COLORS } from '../../constants/presets.js';
 
+// Swatch color map for non-asset presets
+const STYLE_SWATCH = {
+  'ktm-3d-gold':    ['#D4AF37','#FDF1B8'],
+  'ktm-3d-silver':  ['#B0B0B0','#FFFFFF'],
+  'ktm-batons':     ['#374151','#9CA3AF'],
+  'small-circles':  ['#1E40AF','#93C5FD'],
+  'classic-arabic': ['#1F2937','#E5E7EB'],
+  'none':           ['#F3F4F6','#D1D5DB'],
+  'custom-image':   ['#F97316','#FED7AA'],
+};
+
 export const IndicesPanel = ({ 
   indicesExpanded, 
   setIndicesExpanded, 
@@ -65,16 +76,66 @@ export const IndicesPanel = ({
       {indicesExpanded && (
         <div className="mt-2 space-y-2 animate-in fade-in duration-200">
           
-          {/* Style Preset Selector placed FIRST inside Indices section */}
-          <div className="space-y-1">
-            <span className="text-[8px] font-black uppercase text-slate-400">Style Preset</span>
-            <select 
-              value={dialSettings.indexStyle} 
-              onChange={(e) => setDialSettings({...dialSettings, indexStyle: e.target.value})} 
-              className="w-full p-1 border rounded text-[10px] font-bold uppercase bg-white outline-none focus:ring-1 focus:ring-orange-500"
-            >
-              {PRESET_INDEX_STYLES.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+          {/* Visual Style Preset Selector */}
+          <div className="space-y-1.5">
+            <span className="text-[8px] font-black uppercase text-slate-400">Marker Style</span>
+
+            {/* Asset image presets — shown as image thumbnails */}
+            <div className="mb-1">
+              <span className="text-[7px] font-bold uppercase text-amber-600 tracking-wider">📁 Asset Images</span>
+              <div className="grid grid-cols-3 gap-1 mt-1">
+                {PRESET_INDEX_STYLES.filter(s => s.type === 'asset-image').map(s => (
+                  <button
+                    key={s.id}
+                    title={s.name}
+                    onClick={() => setDialSettings({...dialSettings, indexStyle: s.id})}
+                    className={`relative rounded overflow-hidden border-2 transition-all hover:scale-105 active:scale-95 h-12 ${
+                      dialSettings.indexStyle === s.id
+                        ? 'border-orange-500 ring-2 ring-orange-300'
+                        : 'border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    <img src={s.src} alt={s.name} className="w-full h-full object-cover" />
+                    {dialSettings.indexStyle === s.id && (
+                      <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
+                        <Check size={14} className="text-orange-600 drop-shadow" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[6px] font-bold px-0.5 py-px truncate leading-3">
+                      {s.name.replace(' (Asset)', '').replace(/^[^ ]+ /, '')}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Programmatic / other presets — shown as a compact list */}
+            <div>
+              <span className="text-[7px] font-bold uppercase text-slate-400 tracking-wider">⚙ Programmatic Styles</span>
+              <div className="grid grid-cols-2 gap-1 mt-1">
+                {PRESET_INDEX_STYLES.filter(s => s.type !== 'asset-image').map(s => {
+                  const sw = STYLE_SWATCH[s.id] || ['#CBD5E1','#F1F5F9'];
+                  return (
+                    <button
+                      key={s.id}
+                      title={s.name}
+                      onClick={() => setDialSettings({...dialSettings, indexStyle: s.id})}
+                      className={`flex items-center gap-1 px-1.5 py-1 rounded border-2 text-left transition-all hover:scale-105 active:scale-95 ${
+                        dialSettings.indexStyle === s.id
+                          ? 'border-orange-500 bg-orange-50 ring-1 ring-orange-300'
+                          : 'border-slate-200 bg-white hover:border-slate-400'
+                      }`}
+                    >
+                      <span className="w-3.5 h-3.5 rounded-sm shrink-0 border border-white shadow-sm"
+                        style={{ background: `linear-gradient(135deg,${sw[0]},${sw[1]})` }}
+                      />
+                      <span className="text-[7.5px] font-bold uppercase truncate leading-tight text-slate-600">{s.name}</span>
+                      {dialSettings.indexStyle === s.id && <Check size={9} className="ml-auto text-orange-500 shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-between mb-1 pt-1">

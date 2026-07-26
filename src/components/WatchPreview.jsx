@@ -238,26 +238,43 @@ export const WatchPreview = ({
             <Maximize size={12} className="text-slate-500" />
             <span className="text-[9px] font-black text-slate-700 uppercase tracking-tighter">Preview Studio</span>
           </div>
-          <label className="flex items-center gap-1 bg-orange-600 hover:bg-orange-700 text-white px-2 py-0.5 rounded cursor-pointer transition-colors shadow-md">
-            <ImageIcon size={10} />
-            <span className="text-[8px] font-bold uppercase">Upload Custom</span>
-            <input type="file" onChange={handleModelPhotoUpload} className="hidden" accept="image/*" />
-          </label>
         </div>
 
-        {/* Watch Model Presets Dropdown */}
+        {/* Watch Model Presets — visual thumbnail grid */}
         <div className="space-y-0.5">
           <div className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Watch Case Model</div>
-          <select 
-            value={selectedModelId} 
-            onChange={(e) => handleModelChange(e.target.value)} 
-            className="w-full text-[9px] p-1 border rounded bg-white font-bold outline-none"
-          >
+          <div className="grid grid-cols-3 gap-1 mt-1">
             {PRESET_WATCH_MODELS.map(m => (
-              <option key={m.id} value={m.id}>{m.name}</option>
+              <button
+                key={m.id}
+                title={m.name}
+                onClick={() => handleModelChange(m.id)}
+                className={`relative rounded overflow-hidden border-2 transition-all hover:scale-105 active:scale-95 h-14 ${
+                  selectedModelId === m.id
+                    ? 'border-orange-500 ring-2 ring-orange-300'
+                    : 'border-slate-200 hover:border-slate-400'
+                }`}
+              >
+                <img src={m.src} alt={m.name} className="w-full h-full object-cover" />
+                {selectedModelId === m.id && (
+                  <div className="absolute inset-0 bg-orange-500/20 flex items-center justify-center">
+                    <div className="bg-orange-500 rounded-full p-0.5">
+                      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <path d="M1 4l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                    </div>
+                  </div>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/55 text-white text-[5.5px] font-bold px-0.5 py-px truncate leading-tight">
+                  {m.name}
+                </div>
+              </button>
             ))}
-            <option value="custom">Custom Uploaded Photo</option>
-          </select>
+          </div>
+          <label className="mt-1 flex items-center gap-1 text-[8px] font-bold text-slate-400 uppercase tracking-tighter cursor-pointer hover:text-orange-600 transition-colors">
+            <span>📎 Upload Custom Photo</span>
+            <input type="file" onChange={handleModelPhotoUpload} className="hidden" accept="image/*" />
+          </label>
         </div>
 
         {/* Scale & Positioning Sliders */}
