@@ -46,7 +46,7 @@ export function App() {
   const [previewConfig, setPreviewConfig] = useState({ x: 250, y: 345, r: 125, scale: 1.0 });
 
   // Sidebar collapse states
-  const [canvasExpanded, setCanvasExpanded] = useState(true);
+  const [canvasExpanded, setCanvasExpanded] = useState(false);
   const [compExpanded, setCompExpanded] = useState(false);
   const [indicesExpanded, setIndicesExpanded] = useState(false);
   const [domeExpanded, setDomeExpanded] = useState(false);

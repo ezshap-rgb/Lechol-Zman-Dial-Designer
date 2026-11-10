@@ -21,6 +21,7 @@ export const ColorExtractorModal = ({
 
   const fileInputRef = useRef(null);
   const canvasRef = useRef(null);
+  const loupeCanvasRef = useRef(null);
   const offscreenCanvasRef = useRef(null);
   const imageElementRef = useRef(null);
 
@@ -86,6 +87,39 @@ export const ColorExtractorModal = ({
     img.src = activeImageSrc;
   }, [activeImageSrc]);
 
+  // Render magnified pixel patch onto loupe canvas
+  useEffect(() => {
+    if (!loupePos.visible || !loupePixelData || !loupeCanvasRef.current) return;
+    const lCanvas = loupeCanvasRef.current;
+    const lCtx = lCanvas.getContext('2d');
+    lCtx.imageSmoothingEnabled = false;
+
+    const tempPatch = document.createElement('canvas');
+    tempPatch.width = loupePixelData.width;
+    tempPatch.height = loupePixelData.height;
+    const pCtx = tempPatch.getContext('2d');
+    pCtx.putImageData(loupePixelData, 0, 0);
+
+    lCtx.clearRect(0, 0, 72, 72);
+    lCtx.drawImage(tempPatch, 0, 0, 72, 72);
+
+    // Subtle pixel grid overlay
+    lCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    lCtx.lineWidth = 0.5;
+    for (let i = 0; i <= 72; i += 8) {
+      lCtx.beginPath(); lCtx.moveTo(i, 0); lCtx.lineTo(i, 72); lCtx.stroke();
+      lCtx.beginPath(); lCtx.moveTo(0, i); lCtx.lineTo(72, i); lCtx.stroke();
+    }
+
+    // Center target box
+    lCtx.strokeStyle = '#FFFFFF';
+    lCtx.lineWidth = 1.5;
+    lCtx.strokeRect(32, 32, 8, 8);
+    lCtx.strokeStyle = '#000000';
+    lCtx.lineWidth = 0.8;
+    lCtx.strokeRect(31, 31, 10, 10);
+  }, [loupePos, loupePixelData]);
+
   // Handle local image file upload
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
@@ -135,24 +169,27 @@ export const ColorExtractorModal = ({
   };
 
   const handlePointerMove = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const localX = e.clientX - rect.left;
+    const localY = e.clientY - rect.top;
+
     const sampled = sampleColorAt(e.clientX, e.clientY);
     if (sampled) {
       setHoverColor(sampled.hex);
       setLoupePos({
-        x: e.clientX,
-        y: e.clientY,
+        localX,
+        localY,
         visible: true
       });
 
       // Sample a small 9x9 grid around pixel for magnifying loupe
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const startX = Math.max(0, sampled.x - 4);
-        const startY = Math.max(0, sampled.y - 4);
-        const patch = ctx.getImageData(startX, startY, 9, 9);
-        setLoupePixelData(patch);
-      }
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const startX = Math.max(0, Math.min(canvas.width - 9, sampled.x - 4));
+      const startY = Math.max(0, Math.min(canvas.height - 9, sampled.y - 4));
+      const patch = ctx.getImageData(startX, startY, 9, 9);
+      setLoupePixelData(patch);
     } else {
       setLoupePos(prev => ({ ...prev, visible: false }));
     }
@@ -277,6 +314,25 @@ export const ColorExtractorModal = ({
                     onClick={handleCanvasClick}
                     className="max-w-full rounded shadow-md touch-none block"
                   />
+                  {loupePos.visible && hoverColor && (
+                    <div 
+                      className={`pointer-events-none absolute z-30 flex flex-col items-center transform -translate-x-1/2 ${
+                        loupePos.localY < 90 ? 'pt-3 translate-y-0' : '-translate-y-full pb-3'
+                      }`}
+                      style={{
+                        left: loupePos.localX,
+                        top: loupePos.localY
+                      }}
+                    >
+                      <div className="w-[72px] h-[72px] rounded-full border-2 border-white shadow-2xl overflow-hidden bg-black ring-2 ring-black/40">
+                        <canvas ref={loupeCanvasRef} width={72} height={72} className="w-full h-full" />
+                      </div>
+                      <div className="mt-1 bg-black/90 text-white text-[9px] font-mono px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 border border-white/20">
+                        <span className="w-2.5 h-2.5 rounded-full border border-white/80" style={{ backgroundColor: hoverColor }} />
+                        <span>{hoverColor}</span>
+                      </div>
+                    </div>
+                  )}
                   {hoverColor && (
                     <div className="absolute bottom-2 left-2 bg-black/80 text-white text-[9px] font-mono px-2 py-0.5 rounded backdrop-blur-md flex items-center gap-1.5 shadow pointer-events-none">
                       <span className="w-3 h-3 rounded-full border border-white/60" style={{ backgroundColor: hoverColor }} />
