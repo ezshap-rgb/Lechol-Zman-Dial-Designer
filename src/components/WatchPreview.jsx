@@ -1,8 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { Maximize, Image as ImageIcon, Clock } from 'lucide-react';
 import { PRESET_WATCH_MODELS, WATCH_HAND_FINISHES } from '../constants/presets.js';
-import { drawText } from '../utils/textArc.js';
-import { applyDomeWarp } from '../utils/domeRefraction.js';
+import { drawDialToContext } from '../utils/dialRenderer.js';
 
 export const WatchPreview = ({ 
   showPreview, 
@@ -87,39 +86,12 @@ export const WatchPreview = ({
     }
 
     // Render Dial on top of Watch Preview Case
-    const size = Math.ceil(previewConfig.r * 2);
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = size;
-    tempCanvas.height = size;
-    const tempCtx = tempCanvas.getContext('2d');
-    const scale = previewConfig.r / 220;
-
-    tempCtx.save();
-    tempCtx.beginPath();
-    tempCtx.arc(size / 2, size / 2, previewConfig.r, 0, Math.PI * 2);
-    if (!dialSettings.transparentBg) {
-      tempCtx.fillStyle = '#fff';
-      tempCtx.fill();
-    }
-    tempCtx.clip();
-
-    layers.forEach((layer) => {
-      if (layer.type === 'image' && layer.img) {
-        const dw = layer.img.width * layer.scale * scale;
-        const dh = layer.img.height * layer.scale * scale;
-        tempCtx.save();
-        tempCtx.translate(size / 2 + (layer.x - 250) * scale, size / 2 + (layer.y - 250) * scale);
-        tempCtx.rotate((layer.rotation || 0) * Math.PI / 180);
-        tempCtx.globalAlpha = layer.opacity !== undefined ? layer.opacity : 1.0;
-        tempCtx.drawImage(layer.img, -dw / 2, -dh / 2, dw, dh);
-        tempCtx.restore();
-      } else if (layer.type === 'text') {
-        drawText(tempCtx, layer, size / 2, size / 2, scale);
-      }
+    drawDialToContext(ctx, previewConfig.x, previewConfig.y, previewConfig.r, previewConfig.r / 220, {
+      layers,
+      dialSettings,
+      customMarkerImg,
+      loadedAssetImages
     });
-    tempCtx.restore();
-
-    ctx.drawImage(tempCanvas, previewConfig.x - size / 2, previewConfig.y - size / 2);
 
     // Watch Hands Custom Rendering Engine
     if (showHands) {
@@ -183,7 +155,7 @@ export const WatchPreview = ({
         ctx.restore();
       }
     }
-  }, [showPreview, previewPhoto, previewConfig, layers, dialSettings, showHands, handFinishId, timeMinutes, secondHandColor]);
+  }, [showPreview, previewPhoto, previewConfig, layers, dialSettings, customMarkerImg, loadedAssetImages, showHands, handFinishId, timeMinutes, secondHandColor]);
 
   useEffect(() => {
     drawWatchPreview();

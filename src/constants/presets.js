@@ -67,3 +67,19 @@ export const WATCH_HAND_FINISHES = [
   { id: 'black',    name: 'Black',     fill: '#1F2937', stroke: '#111827' },
   { id: 'rosegold', name: 'Rose Gold', fill: '#E0A96D', stroke: '#6A3814' }
 ];
+
+// Classic & Luxury Watch Dial Color Presets
+export const DIAL_COLOR_PRESETS = [
+  { name: 'Pure White',       value: '#FFFFFF' },
+  { name: 'Onyx Black',       value: '#0F172A' },
+  { name: 'Sunburst Silver',  value: '#E2E8F0' },
+  { name: 'Midnight Navy',    value: '#1E3A8A' },
+  { name: 'Royal Blue',       value: '#1D4ED8' },
+  { name: 'Racing Green',     value: '#14532D' },
+  { name: 'Emerald Green',    value: '#047857' },
+  { name: 'Champagne Gold',   value: '#D4AF37' },
+  { name: 'Vintage Ivory',    value: '#FEF3C7' },
+  { name: 'Salmon Copper',    value: '#E0A96D' },
+  { name: 'Burgundy Oxblood', value: '#7F1D1D' },
+  { name: 'Slate Graphite',   value: '#475569' }
+];

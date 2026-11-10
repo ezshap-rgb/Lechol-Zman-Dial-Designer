@@ -2,13 +2,16 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Header } from './components/Header.jsx';
 import { CanvasEditor } from './components/CanvasEditor.jsx';
 import { WatchPreview } from './components/WatchPreview.jsx';
+import { DialCanvasPanel } from './components/Sidebar/DialCanvasPanel.jsx';
 import { CompositionPanel } from './components/Sidebar/CompositionPanel.jsx';
 import { IndicesPanel } from './components/Sidebar/IndicesPanel.jsx';
 import { DomePanel } from './components/Sidebar/DomePanel.jsx';
 import { OutputPanel } from './components/Sidebar/OutputPanel.jsx';
 import { PrintQueuePanel } from './components/Sidebar/PrintQueuePanel.jsx';
+import { ColorExtractorModal } from './components/ColorExtractorModal.jsx';
 import { DEFAULT_FONTS, PRESET_INDEX_STYLES } from './constants/presets.js';
 import { downloadDialImage, generatePrintSheet } from './utils/printEngine.js';
+import { drawDialToContext } from './utils/dialRenderer.js';
 
 export function App() {
   const [layers, setLayers] = useState([]);
@@ -20,6 +23,7 @@ export function App() {
   const [dialSettings, setDialSettings] = useState({
     indexStyle: 'ktm-3d-gold',
     indexColor: '#000000',
+    dialColor: '#FFFFFF',
     indexSize: 35,
     indexWidth: 10,
     indexRadius: 195,
@@ -42,9 +46,13 @@ export function App() {
   const [previewConfig, setPreviewConfig] = useState({ x: 250, y: 345, r: 125, scale: 1.0 });
 
   // Sidebar collapse states
+  const [canvasExpanded, setCanvasExpanded] = useState(true);
   const [compExpanded, setCompExpanded] = useState(false);
   const [indicesExpanded, setIndicesExpanded] = useState(false);
   const [domeExpanded, setDomeExpanded] = useState(false);
+
+  // Color Extractor Modal state
+  const [extractorModalOpen, setExtractorModalOpen] = useState(false);
 
   // Recent customized colors
   const [recentColors, setRecentColors] = useState(['#FF6600', '#B0B0B0', '#1E40AF', '#D4AF37', '#000000', '#FFFFFF']);
@@ -160,12 +168,45 @@ export function App() {
 
   const availableFonts = useMemo(() => [...DEFAULT_FONTS, ...customFonts], [customFonts]);
 
+  // Reusable dial rendering callback for print & export
+  const renderDial = useCallback((ctx, cx, cy, r, s) => {
+    drawDialToContext(ctx, cx, cy, r, s, {
+      layers,
+      dialSettings,
+      customMarkerImg,
+      loadedAssetImages
+    });
+  }, [layers, dialSettings, customMarkerImg, loadedAssetImages]);
+
   const handleDownloadImage = () => {
-    if (canvasRef.current) {
-      downloadDialImage((ctx, cx, cy, r, s) => {
-        // Render helper passed to print Engine
-      }, dialSettings);
-    }
+    downloadDialImage(renderDial, dialSettings);
+  };
+
+  const handleGeneratePrint = () => {
+    generatePrintSheet(renderDial, dialSettings, batchList);
+  };
+
+  const handleApplyDialColor = (color) => {
+    setDialSettings(prev => ({
+      ...prev,
+      dialColor: color,
+      transparentBg: false
+    }));
+    setRecentColors(prev => {
+      const filtered = prev.filter(c => c.toUpperCase() !== color.toUpperCase());
+      return [color, ...filtered].slice(0, 8);
+    });
+  };
+
+  const handleApplyIndexColor = (color) => {
+    setDialSettings(prev => ({
+      ...prev,
+      indexColor: color
+    }));
+    setRecentColors(prev => {
+      const filtered = prev.filter(c => c.toUpperCase() !== color.toUpperCase());
+      return [color, ...filtered].slice(0, 8);
+    });
   };
 
   return (
@@ -174,7 +215,7 @@ export function App() {
         showPreview={showPreview}
         setShowPreview={setShowPreview}
         downloadDialImage={handleDownloadImage}
-        generatePrint={() => generatePrintSheet(null, dialSettings, batchList)}
+        generatePrint={handleGeneratePrint}
         layers={layers}
         dialSettings={dialSettings}
         previewConfig={previewConfig}
@@ -190,6 +231,16 @@ export function App() {
       <main className="flex flex-col lg:flex-row flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside className="w-full lg:w-[280px] bg-white border-b lg:border-b-0 lg:border-r overflow-y-auto p-3 lg:p-4 flex flex-col scrollbar-thin shrink-0 shadow-xl z-10 h-auto lg:h-full">
+          <DialCanvasPanel
+            canvasExpanded={canvasExpanded}
+            setCanvasExpanded={setCanvasExpanded}
+            dialSettings={dialSettings}
+            setDialSettings={setDialSettings}
+            recentColors={recentColors}
+            setRecentColors={setRecentColors}
+            onOpenColorExtractor={() => setExtractorModalOpen(true)}
+          />
+
           <CompositionPanel
             compExpanded={compExpanded}
             setCompExpanded={setCompExpanded}
@@ -242,6 +293,7 @@ export function App() {
           dialSettings={dialSettings}
           customMarkerImg={customMarkerImg}
           loadedAssetImages={loadedAssetImages}
+          onOpenColorExtractor={() => setExtractorModalOpen(true)}
         />
 
         {/* Watch Model Preview Studio */}
@@ -257,6 +309,17 @@ export function App() {
           loadedAssetImages={loadedAssetImages}
         />
       </main>
+
+      {/* Color Extractor from Image Modal */}
+      <ColorExtractorModal
+        isOpen={extractorModalOpen}
+        onClose={() => setExtractorModalOpen(false)}
+        onApplyDialColor={handleApplyDialColor}
+        onApplyIndexColor={handleApplyIndexColor}
+        layers={layers}
+        currentDialColor={dialSettings.dialColor || '#FFFFFF'}
+        currentDialSettings={dialSettings}
+      />
 
       <footer className="bg-slate-900 text-white px-6 py-1 lg:py-1.5 flex items-center justify-between text-[8px] lg:text-[9px] font-black tracking-widest uppercase italic shrink-0 h-8">
         <div className="flex items-center gap-6">

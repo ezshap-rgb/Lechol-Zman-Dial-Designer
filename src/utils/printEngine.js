@@ -5,6 +5,12 @@ export const downloadDialImage = (drawDialToContext, dialSettings) => {
   imgCanvas.width = 2000; 
   imgCanvas.height = 2000;
   const iCtx = imgCanvas.getContext('2d'); 
+
+  if (!dialSettings.transparentBg) {
+    iCtx.fillStyle = '#FFFFFF';
+    iCtx.fillRect(0, 0, 2000, 2000);
+  }
+
   iCtx.save(); 
   iCtx.beginPath(); 
   iCtx.arc(1000, 1000, 880, 0, Math.PI * 2); 

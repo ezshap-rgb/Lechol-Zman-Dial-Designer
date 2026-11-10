@@ -1,8 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { Upload } from 'lucide-react';
-import { drawText } from '../utils/textArc.js';
-import { applyDomeWarp } from '../utils/domeRefraction.js';
-import { PRESET_INDEX_STYLES } from '../constants/presets.js';
+import { Upload, Pipette } from 'lucide-react';
+import { drawDialToContext } from '../utils/dialRenderer.js';
 
 export const CanvasEditor = ({ 
   canvasRef, 
@@ -11,162 +9,13 @@ export const CanvasEditor = ({
   selectedLayerIndex, 
   dialSettings, 
   customMarkerImg,
-  loadedAssetImages
+  loadedAssetImages,
+  onOpenColorExtractor
 }) => {
   const isDraggingRef = useRef(false);
   const mainDragRef = useRef({ startMouseX: 0, startMouseY: 0, initialX: 0, initialY: 0 });
   const [snappedX, setSnappedX] = useState(false);
   const [snappedY, setSnappedY] = useState(false);
-
-  const drawIndices = useCallback((ctx, centerX, centerY, scaleFactor = 1) => {
-    const style = PRESET_INDEX_STYLES.find(s => s.id === dialSettings.indexStyle);
-    if (!style || style.type === 'none') return;
-    const drawRadius = dialSettings.indexRadius * scaleFactor;
-    const baseLen = dialSettings.indexSize * scaleFactor;
-    const baseWid = dialSettings.indexWidth * scaleFactor;
-
-    ctx.save();
-    if (dialSettings.showShadow) {
-      ctx.shadowBlur = 4 * scaleFactor;
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowOffsetX = 2 * scaleFactor;
-      ctx.shadowOffsetY = 2 * scaleFactor;
-    }
-
-    for (let i = 0; i < 12; i++) {
-      if (!dialSettings.indexMask[i]) continue;
-      const angle = (i * 30 - 90) * (Math.PI / 180);
-      const x = centerX + Math.cos(angle) * drawRadius;
-      const y = centerY + Math.sin(angle) * drawRadius;
-
-      if (style.type === 'numbers') {
-        ctx.fillStyle = dialSettings.indexColor;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = `bold ${baseLen}px Inter, sans-serif`;
-        ctx.fillText(style.values[i], x, y);
-      } else if (style.type === 'indices-3d') {
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(angle + Math.PI / 2);
-        const w = (i % 3 === 0 ? baseWid * 1.5 : baseWid);
-        const h = (i % 3 === 0 ? baseLen : baseLen * 0.8);
-        const rx = -w / 2;
-        const ry = -drawRadius - h / 2 + 15 * scaleFactor;
-        ctx.fillStyle = style.baseColor;
-        ctx.fillRect(rx, ry, w, h);
-        ctx.strokeStyle = style.facetColor;
-        ctx.lineWidth = 1 * scaleFactor;
-        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx + w, ry); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx, ry + h); ctx.stroke();
-        ctx.strokeStyle = style.shadowColor; ctx.globalAlpha = 0.4;
-        ctx.beginPath(); ctx.moveTo(rx + w * 0.8, ry); ctx.lineTo(rx + w * 0.8, ry + h); ctx.stroke();
-        ctx.restore();
-      } else if (style.type === 'circles') {
-        ctx.beginPath();
-        ctx.fillStyle = dialSettings.indexColor;
-        ctx.arc(x, y, baseWid / 2, 0, Math.PI * 2);
-        ctx.fill();
-      } else if (style.type === 'asset-image') {
-        const assetImg = loadedAssetImages ? loadedAssetImages[style.src] : null;
-        if (assetImg) {
-          ctx.save();
-          ctx.translate(x, y);
-          if (dialSettings.rotateMarkers) {
-            ctx.rotate(angle + Math.PI / 2);
-          }
-          const imgScale = (baseLen / 50) * scaleFactor;
-          const w = assetImg.width * imgScale;
-          const h = assetImg.height * imgScale;
-          ctx.drawImage(assetImg, -w / 2, -h / 2, w, h);
-          ctx.restore();
-        }
-      } else if (style.type === 'custom' && customMarkerImg) {
-        ctx.save();
-        ctx.translate(x, y);
-        if (dialSettings.rotateMarkers) {
-          ctx.rotate(angle + Math.PI / 2);
-        }
-        const imgScale = (baseLen / 50) * scaleFactor;
-        const w = customMarkerImg.width * imgScale;
-        const h = customMarkerImg.height * imgScale;
-        ctx.drawImage(customMarkerImg, -w / 2, -h / 2, w, h);
-        ctx.restore();
-      } else {
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        ctx.rotate(angle + Math.PI / 2);
-        const w = (i % 3 === 0 ? baseWid * 1.5 : baseWid);
-        const h = (i % 3 === 0 ? baseLen : baseLen * 0.8);
-        ctx.fillStyle = dialSettings.indexColor;
-        ctx.fillRect(-w/2, -drawRadius - h/2 + 15 * scaleFactor, w, h);
-        ctx.restore();
-      }
-    }
-    ctx.restore();
-  }, [dialSettings, customMarkerImg, loadedAssetImages]);
-
-  const drawDialToContext = useCallback((ctx, centerX, centerY, radius, scale) => {
-    ctx.save();
-    const size = Math.ceil(radius * 2);
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = size;
-    tempCanvas.height = size;
-    const tempCtx = tempCanvas.getContext('2d');
-    
-    const flatRadius = radius;
-    const flatCenterX = size / 2;
-    const flatCenterY = size / 2;
-    
-    tempCtx.save();
-    tempCtx.beginPath(); tempCtx.arc(flatCenterX, flatCenterY, flatRadius, 0, Math.PI * 2);
-    
-    if (!dialSettings.transparentBg) {
-      tempCtx.fillStyle = '#fff'; tempCtx.fill();
-    }
-    tempCtx.clip();
-    
-    layers.forEach((layer) => {
-      if (layer.type === 'image' && layer.img) {
-        const dw = layer.img.width * layer.scale * scale;
-        const dh = layer.img.height * layer.scale * scale;
-        tempCtx.save();
-        tempCtx.translate(flatCenterX + (layer.x - 250) * scale, flatCenterY + (layer.y - 250) * scale);
-        tempCtx.rotate((layer.rotation || 0) * Math.PI / 180);
-        tempCtx.globalAlpha = layer.opacity !== undefined ? layer.opacity : 1.0;
-        tempCtx.drawImage(layer.img, -dw / 2, -dh / 2, dw, dh);
-        tempCtx.restore();
-      } else if (layer.type === 'text') {
-        drawText(tempCtx, layer, flatCenterX, flatCenterY, scale);
-      }
-    });
-    tempCtx.restore();
-    drawIndices(tempCtx, flatCenterX, flatCenterY, scale);
-    
-    if (dialSettings.showCenterDot) {
-      const style = PRESET_INDEX_STYLES.find(s => s.id === dialSettings.indexStyle);
-      const dotColor = (style && style.baseColor) ? style.baseColor : dialSettings.indexColor;
-      tempCtx.save();
-      tempCtx.shadowBlur = 3 * scale; tempCtx.shadowColor = 'rgba(0,0,0,0.5)'; tempCtx.shadowOffsetX = 1 * scale; tempCtx.shadowOffsetY = 1 * scale;
-      tempCtx.beginPath(); tempCtx.arc(flatCenterX, flatCenterY, 4.5 * scale, 0, Math.PI * 2);
-      tempCtx.fillStyle = dotColor; tempCtx.fill();
-      tempCtx.shadowBlur = 0; tempCtx.strokeStyle = '#fff'; tempCtx.lineWidth = 1 * scale; tempCtx.stroke();
-      tempCtx.restore();
-    }
-    
-    if (dialSettings.domeEnabled) {
-      const warpedCanvas = document.createElement('canvas');
-      warpedCanvas.width = size;
-      warpedCanvas.height = size;
-      const warpedCtx = warpedCanvas.getContext('2d');
-      
-      applyDomeWarp(tempCanvas, warpedCtx, flatCenterX, flatCenterY, flatRadius, dialSettings);
-      ctx.drawImage(warpedCanvas, centerX - flatCenterX, centerY - flatCenterY);
-    } else {
-      ctx.drawImage(tempCanvas, centerX - flatCenterX, centerY - flatCenterY);
-    }
-    ctx.restore();
-  }, [layers, dialSettings, drawIndices]);
 
   const drawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -174,9 +23,11 @@ export const CanvasEditor = ({
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, 500, 500);
 
+    // Draw checkerboard inside dial circle boundary if transparent
     if (dialSettings.transparentBg) {
       ctx.save();
-      ctx.beginPath(); ctx.arc(250, 250, 220, 0, Math.PI * 2);
+      ctx.beginPath();
+      ctx.arc(250, 250, 220, 0, Math.PI * 2);
       ctx.clip();
       const checkSize = 12;
       for (let y = 30; y < 470; y += checkSize) {
@@ -188,9 +39,18 @@ export const CanvasEditor = ({
       ctx.restore();
     }
 
-    drawDialToContext(ctx, 250, 250, 220, 1);
-    ctx.beginPath(); ctx.arc(250, 250, 220, 0, Math.PI * 2);
-    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2; ctx.stroke();
+    drawDialToContext(ctx, 250, 250, 220, 1, {
+      layers,
+      dialSettings,
+      customMarkerImg,
+      loadedAssetImages
+    });
+
+    ctx.beginPath();
+    ctx.arc(250, 250, 220, 0, Math.PI * 2);
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
     // Magnet Center Snapping Visual Guidelines
     if (isDraggingRef.current) {
@@ -207,7 +67,7 @@ export const CanvasEditor = ({
       }
       ctx.restore();
     }
-  }, [layers, dialSettings, drawDialToContext, snappedX, snappedY]);
+  }, [layers, dialSettings, customMarkerImg, loadedAssetImages, snappedX, snappedY]);
 
   useEffect(() => {
     drawCanvas();
@@ -275,8 +135,30 @@ export const CanvasEditor = ({
     setSnappedY(false);
   };
 
+  const activeColor = dialSettings.transparentBg ? 'transparent' : (dialSettings.dialColor || '#ffffff');
+
   return (
     <div className="flex-1 relative flex items-center justify-center wood-grain p-2 lg:p-4 z-0 overflow-hidden">
+      {/* Floating Canvas Dial Color Badge */}
+      <div className="absolute top-3 right-4 z-20 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/20 text-white text-[9px] font-bold shadow-lg">
+        <span 
+          className="w-3.5 h-3.5 rounded-full border border-white/60 shadow-sm shrink-0"
+          style={{ backgroundColor: activeColor }}
+        />
+        <span className="font-mono uppercase tracking-wider">
+          {dialSettings.transparentBg ? 'TRANSPARENT' : (dialSettings.dialColor || '#FFFFFF')}
+        </span>
+        {onOpenColorExtractor && (
+          <button
+            onClick={onOpenColorExtractor}
+            className="ml-1 p-0.5 rounded hover:bg-white/20 text-orange-400 hover:text-orange-300 transition-colors"
+            title="Match color from image"
+          >
+            <Pipette size={11} />
+          </button>
+        )}
+      </div>
+
       <div className="bg-white/10 backdrop-blur-sm p-4 lg:p-6 rounded-[40px] lg:rounded-[60px] canvas-shadow border-[4px] lg:border-[8px] border-white/20 relative flex-shrink-0 max-w-full">
         <canvas 
           ref={canvasRef} 
@@ -286,7 +168,8 @@ export const CanvasEditor = ({
           onPointerMove={handleInputMove} 
           onPointerUp={handleInputEnd} 
           onPointerLeave={handleInputEnd}
-          className={`rounded-full bg-white shadow-2xl cursor-crosshair touch-none ${selectedLayerIndex !== null ? 'cursor-move' : ''} w-[280px] h-[280px] lg:w-[480px] lg:h-[480px]`}
+          className={`rounded-full shadow-2xl cursor-crosshair touch-none ${selectedLayerIndex !== null ? 'cursor-move' : ''} w-[280px] h-[280px] lg:w-[480px] lg:h-[480px]`}
+          style={{ backgroundColor: activeColor }}
         />
         {layers.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-[0.25]">
