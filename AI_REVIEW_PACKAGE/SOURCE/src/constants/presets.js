@@ -1,0 +1,85 @@
+// ── Image asset imports ───────────────────────────────────────────────────────
+// Importing as ES modules tells Vite to process them.
+// With assetsInlineLimit set very high they become base64 data URLs,
+// which work correctly when the HTML file is opened directly (file:// protocol).
+
+// Index / marker images
+import goldIndiceUrl      from '../../assets/indices/gold_indice.png';
+import goldLightIndiceUrl from '../../assets/indices/gold_indice_light.png';
+import silverIndiceUrl    from '../../assets/indices/silver_indice.png';
+
+// Watch model photos
+import rolexSilverUrl   from '../../assets/models/Rolex_silver.jpg';
+import goldBrownUrl     from '../../assets/models/Gold_Brown.jpg';
+import silverBlackUrl   from '../../assets/models/silver_black.jpg';
+import silverBrownUrl   from '../../assets/models/silver_brown.jpg';
+import silverSilverUrl  from '../../assets/models/silver_silver.jpg';
+import woodUrl          from '../../assets/models/wood.jpg';
+
+export const DPI = 300;
+export const MM_TO_INCH = 1 / 25.4;
+
+export const PAPER_SIZES = [
+  { id: '13x18', name: '13x18 cm', wMm: 130, hMm: 180 },
+  { id: '10x15', name: '10x15 cm', wMm: 100, hMm: 150 }
+];
+
+export const DEFAULT_FONTS = [
+  { id: 'Inter', name: 'Sans' },
+  { id: 'Playfair Display', name: 'Serif' },
+  { id: 'IBM Plex Sans Hebrew', name: 'Hebrew' },
+  { id: 'Roboto Mono', name: 'Mono' }
+];
+
+export const PRESET_INDEX_STYLES = [
+  { id: 'ktm-3d-gold',   name: 'Faceted Gold (3D)',   type: 'indices-3d',   baseColor: '#D4AF37', facetColor: '#FDF1B8', shadowColor: '#5C4410' },
+  { id: 'ktm-3d-silver', name: 'Faceted Silver (3D)', type: 'indices-3d',   baseColor: '#B0B0B0', facetColor: '#FFFFFF', shadowColor: '#333333' },
+  { id: 'ktm-batons',    name: 'Classic Batons',       type: 'indices',      shape: 'rect' },
+  { id: 'small-circles', name: 'Small Circles',        type: 'circles' },
+  { id: 'asset-gold-indice',       name: '🔶 Gold Indice (Asset)',       type: 'asset-image', src: goldIndiceUrl },
+  { id: 'asset-gold-light-indice', name: '🔸 Gold Light Indice (Asset)', type: 'asset-image', src: goldLightIndiceUrl },
+  { id: 'asset-silver-indice',     name: '⚪ Silver Indice (Asset)',      type: 'asset-image', src: silverIndiceUrl },
+  { id: 'custom-image',  name: '📎 Custom Marker Image', type: 'custom' },
+  { id: 'none',          name: 'None (Clean)',          type: 'none' },
+  { id: 'classic-arabic', name: 'Arabic Numbers',      type: 'numbers', values: [12,1,2,3,4,5,6,7,8,9,10,11] }
+];
+
+export const PRESET_WATCH_MODELS = [
+  { id: 'rolex-silver',  name: 'Rolex Silver',            src: rolexSilverUrl },
+  { id: 'gold-brown',    name: 'Gold & Brown Leather',     src: goldBrownUrl },
+  { id: 'silver-black',  name: 'Silver & Black Leather',   src: silverBlackUrl },
+  { id: 'silver-brown',  name: 'Silver & Brown Leather',   src: silverBrownUrl },
+  { id: 'silver-silver', name: 'Silver & Silver Steel',    src: silverSilverUrl },
+  { id: 'wood-case',     name: 'Wood Case',                src: woodUrl }
+];
+
+export const COLORS = [
+  { name: 'White',  value: '#FFFFFF' },
+  { name: 'Black',  value: '#000000' },
+  { name: 'Gold',   value: '#D4AF37' },
+  { name: 'Silver', value: '#C0C0C0' },
+  { name: 'Blue',   value: '#1E40AF' }
+];
+
+export const WATCH_HAND_FINISHES = [
+  { id: 'silver',   name: 'Silver',    fill: '#D1D5DB', stroke: '#374151' },
+  { id: 'gold',     name: 'Gold',      fill: '#F59E0B', stroke: '#78350F' },
+  { id: 'black',    name: 'Black',     fill: '#1F2937', stroke: '#111827' },
+  { id: 'rosegold', name: 'Rose Gold', fill: '#E0A96D', stroke: '#6A3814' }
+];
+
+// Classic & Luxury Watch Dial Color Presets
+export const DIAL_COLOR_PRESETS = [
+  { name: 'Pure White',       value: '#FFFFFF' },
+  { name: 'Onyx Black',       value: '#0F172A' },
+  { name: 'Sunburst Silver',  value: '#E2E8F0' },
+  { name: 'Midnight Navy',    value: '#1E3A8A' },
+  { name: 'Royal Blue',       value: '#1D4ED8' },
+  { name: 'Racing Green',     value: '#14532D' },
+  { name: 'Emerald Green',    value: '#047857' },
+  { name: 'Champagne Gold',   value: '#D4AF37' },
+  { name: 'Vintage Ivory',    value: '#FEF3C7' },
+  { name: 'Salmon Copper',    value: '#E0A96D' },
+  { name: 'Burgundy Oxblood', value: '#7F1D1D' },
+  { name: 'Slate Graphite',   value: '#475569' }
+];

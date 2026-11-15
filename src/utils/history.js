@@ -1,9 +1,34 @@
+/**
+ * Decodes and hydrates image layers into fully loaded HTMLImageElement objects
+ * before returning, ensuring canvas draws images immediately upon load/restore.
+ */
+export const hydrateLayersImages = (layers) => {
+  return Promise.all(
+    layers.map((layer) => {
+      if (layer.type === 'image' && (layer.imgSrc || (layer.img && layer.img.src))) {
+        const src = layer.imgSrc || layer.img.src;
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve({ ...layer, img, imgSrc: src });
+          img.onerror = () => resolve({ ...layer, img: null, imgSrc: src });
+          img.src = src;
+          // In case of instant cached decode
+          if (img.complete && img.naturalWidth > 0) {
+            resolve({ ...layer, img, imgSrc: src });
+          }
+        });
+      }
+      return Promise.resolve(layer);
+    })
+  );
+};
+
 export const saveProjectFile = (layers, dialSettings, previewConfig) => {
   const serializableLayers = layers.map(layer => {
-    if (layer.type === 'image' && layer.img) {
+    if (layer.type === 'image' && (layer.img || layer.imgSrc)) {
       return {
         ...layer,
-        imgSrc: layer.img.src,
+        imgSrc: layer.img ? layer.img.src : layer.imgSrc,
         img: undefined
       };
     }
@@ -31,7 +56,7 @@ export const saveProjectFile = (layers, dialSettings, previewConfig) => {
 export const loadProjectFile = (file, onSuccess) => {
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const projectData = JSON.parse(e.target.result);
       if (!projectData.layers || !projectData.dialSettings) {
@@ -39,14 +64,7 @@ export const loadProjectFile = (file, onSuccess) => {
         return;
       }
       
-      const loadedLayers = projectData.layers.map(layer => {
-        if (layer.type === 'image' && layer.imgSrc) {
-          const img = new Image();
-          img.src = layer.imgSrc;
-          return { ...layer, img };
-        }
-        return layer;
-      });
+      const loadedLayers = await hydrateLayersImages(projectData.layers);
 
       onSuccess({
         dialSettings: projectData.dialSettings,

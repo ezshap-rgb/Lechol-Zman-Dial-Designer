@@ -1,0 +1,6 @@
+node_modules/
+dist/
+index.old.html
+app.html
+.DS_Store
+*.log

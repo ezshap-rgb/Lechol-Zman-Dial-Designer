@@ -1,0 +1,8 @@
+[
+  "package.json",
+  "src/main.jsx",
+  "src/App.jsx",
+  "src/constants/presets.js",
+  "src/utils/dialRenderer.js",
+  "src/components/CanvasEditor.jsx"
+]

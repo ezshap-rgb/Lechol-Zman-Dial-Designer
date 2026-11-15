@@ -12,6 +12,7 @@ import { ColorExtractorModal } from './components/ColorExtractorModal.jsx';
 import { DEFAULT_FONTS, PRESET_INDEX_STYLES } from './constants/presets.js';
 import { downloadDialImage, generatePrintSheet } from './utils/printEngine.js';
 import { drawDialToContext } from './utils/dialRenderer.js';
+import { hydrateLayersImages } from './utils/history.js';
 
 export function App() {
   const [layers, setLayers] = useState([]);
@@ -64,7 +65,9 @@ export function App() {
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isHistoryActionRef = useRef(false);
-
+  const historyIndexRef = useRef(-1);
+  historyIndexRef.current = historyIndex;
+  const lastSavedSnapshotRef = useRef(null);
   const canvasRef = useRef(null);
 
   // Pre-load local asset images for image-based index presets
@@ -96,18 +99,40 @@ export function App() {
       return;
     }
     const stateSnapshot = {
-      layers: JSON.parse(JSON.stringify(currentLayers.map(l => ({ ...l, img: undefined, imgSrc: l.img ? l.img.src : undefined })))),
+      layers: currentLayers.map(l => ({
+        ...l,
+        img: undefined,
+        imgSrc: l.img ? l.img.src : l.imgSrc
+      })),
       dialSettings: { ...currentDialSettings }
     };
+    const serialized = JSON.stringify(stateSnapshot);
+    if (serialized === lastSavedSnapshotRef.current) {
+      return; // Identical state, skip duplicate snapshot!
+    }
+    lastSavedSnapshotRef.current = serialized;
+
     setHistory(prev => {
-      const newHistory = prev.slice(0, historyIndex + 1);
-      return [...newHistory, stateSnapshot];
+      const newHistory = prev.slice(0, historyIndexRef.current + 1);
+      const next = [...newHistory, stateSnapshot];
+      // Cap at 30 snapshots to prevent memory bloat
+      if (next.length > 30) {
+        next.shift();
+      }
+      return next;
     });
-    setHistoryIndex(prev => prev + 1);
-  }, [historyIndex]);
+    setHistoryIndex(prev => {
+      const nextIdx = Math.min(prev + 1, 29);
+      return nextIdx;
+    });
+  }, []);
 
   // Debounced History Saver
   useEffect(() => {
+    if (isHistoryActionRef.current) {
+      isHistoryActionRef.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       saveStateToHistory(layers, dialSettings);
     }, 400);
@@ -134,15 +159,12 @@ export function App() {
     }
   };
 
-  const restoreSnapshot = (snapshot) => {
-    const restoredLayers = snapshot.layers.map(l => {
-      if (l.type === 'image' && l.imgSrc) {
-        const img = new Image();
-        img.src = l.imgSrc;
-        return { ...l, img };
-      }
-      return l;
-    });
+  const restoreSnapshot = async (snapshot) => {
+    const serialized = JSON.stringify(snapshot);
+    lastSavedSnapshotRef.current = serialized;
+    isHistoryActionRef.current = true;
+
+    const restoredLayers = await hydrateLayersImages(snapshot.layers);
     setLayers(restoredLayers);
     setDialSettings(snapshot.dialSettings);
   };
